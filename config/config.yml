@@ -1,0 +1,19 @@
+log: ""
+broken_gap: 10
+cmds:
+ - 
+  cmd: /usr/bin/php
+  args: 
+   - test/test.php
+   - ak
+   - av
+  output: ./php.log 
+ - 
+  cmd: "/usr/bin/php"
+  args: 
+   - "test/test.php"
+   - "ak"
+   - "av"
+  output: "./php.log"
+  cron: "* * * * *"
+   
