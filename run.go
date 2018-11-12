@@ -22,9 +22,9 @@ type State struct {
 
 //运行时的必要参数
 var (
-	RunState    *State
-	breakGap    int64
-	brokenTimes = 5
+	RunState    *State //状态机实例
+	breakGap    int64  //异常中断容忍间隔
+	brokenTimes = 5    //异常终端容忍次数
 )
 
 func init() {
@@ -33,39 +33,39 @@ func init() {
 }
 
 func Run() {
+	//初始化状态机实力参数
 	InitTask()
+	//向通道内预写入一个开始信号
 	go func() {
 		signalChan <- sigStart
 	}()
-	go func() {
-		time.Sleep(6 * time.Second)
-		signalChan <- sigReload
-	}()
-
-	go func() {
-		time.Sleep(10 * time.Second)
-		signalChan <- sigExit
-	}()
-
+	//按照配置启动命令
 	for {
 		sig := <-signalChan
 		switch sig {
+		//接收到所有进程异常信号后 退出主程序
 		case sigBroken:
 			//运行结束打印
-			log.Println("all process broken!")
+			log.Println("run all process broken !")
 			return
+		//接收到重载信号后更新cmd配置 结束所有进程并按照新配置重新启动进程
 		case sigReload:
 			err := ReloadTask()
 			if err == nil {
+				log.Println("run prepare reload process ...")
 				ExitTask()
 				InitTask()
 				StartTask()
+				log.Println("run process reloaded !")
 			}
+		//接收到启动信号后 直接按照配置变量数据启动进程
 		case sigStart:
 			StartTask()
+		//接收到退出信号后 按次序杀死管理的进程 退出主程序
 		case sigExit:
+			log.Println("run starting exit process ...")
 			ExitTask()
-			log.Println("all process exit!")
+			log.Println("run all process exit !")
 			return
 		default:
 			log.Printf("undefined sig : %d \n", sig)
@@ -110,6 +110,11 @@ func runDeamonRoutine(id string, c *Command) {
 		if err != nil {
 			log.Println("cmd id:" + id + " errmsg:" + err.Error())
 		}
+		//验证是否是管理程序主动退出协程
+		if _, ok := RunState.RunningList[id]; !ok {
+			//log.Println("manager exit id:" + id)
+			break
+		}
 		//从运行中状态机中移除本命令
 		RunState.Numlock.Lock()
 		RunState.RunningNum--
@@ -150,15 +155,15 @@ func runDeamonRoutine(id string, c *Command) {
 //执行退出时，停止所有管理的进程
 func ExitTask() {
 	for id, cmd := range RunState.RunningList {
-		err := cmd.Kill()
 		RunState.Numlock.Lock()
 		RunState.RunningNum--
 		delete(RunState.RunningList, id)
 		RunState.Numlock.Unlock()
+		err := cmd.Kill()
 		if err != nil {
-			log.Println("exit kill error : " + err.Error())
+			log.Println("run kill error : " + err.Error())
 		} else {
-			log.Println("exit kill cmd : " + id)
+			log.Println("run kill cmd : " + id)
 		}
 	}
 }
@@ -167,7 +172,7 @@ func ExitTask() {
 func ReloadTask() error {
 	err := reloadConfigs()
 	if err != nil {
-		log.Println("reload read config error : " + err.Error())
+		log.Println("run reload read config error : " + err.Error())
 		return err
 	}
 	return nil
@@ -190,18 +195,16 @@ func InitTask() {
 func StartTask() error {
 	//服务已经启动过
 	if RunState.TasksNum > 0 {
-		startedErrmsg := "start tasks has started"
+		startedErrmsg := "run start tasks has started"
 		log.Println(startedErrmsg)
 		return errors.New(startedErrmsg)
 	}
-
+	//启动服务
 	for id, cmd := range cmds {
-
 		if !cmd.IsCron() {
 			RunState.TasksNum++
 			go runDeamonRoutine(id, cmd)
-			log.Println("started id" + id)
-
+			log.Println("run started cmd : " + id)
 		}
 	}
 	return nil

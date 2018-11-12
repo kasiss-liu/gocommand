@@ -36,24 +36,23 @@ func init() {
 }
 
 func startListenService() {
-	log.Println("listen service starting ...")
 	//windows下暂时不做处理
 	switch runtime.GOOS {
 	case "windows":
 	//macos和linux 启动unix通信
 	case "darwin":
-		fallthrough
-	case "linux":
 		unixListen()
-	}
+	case "linux":
 
+	}
 }
 
 func unixListen() {
+	log.Println("listen service starting ...")
 	var err error
 	s, err = net.ListenUnix("unix", &net.UnixAddr{Name: sockPath, Net: "unix"})
 	if err != nil {
-		log.Fatalln(err.Error())
+		log.Fatalln("unix listen start faild : " + err.Error())
 	}
 	s.SetUnlinkOnClose(true)
 
@@ -104,23 +103,19 @@ func stopListenSerivce() {
 	switch runtime.GOOS {
 	case "windows":
 	case "darwin":
-		fallthrough
-	case "linux":
 		s.Close()
 		log.Println("unix listen service stopped")
+	case "linux":
+
 	}
 }
 
+//启动一个协程 监听系统信号
+//如果是ctrl+c 或普通 kill 信号 则发送退出指令 有序退出程序
 func listenSystemSig() {
 	go func() {
-		for {
-			select {
-			case sig := <-sysSigChan:
-				log.Println("system signal :" + sig.String())
-				signalChan <- sigExit
-
-			default:
-			}
-		}
+		sig := <-sysSigChan
+		log.Println("system signal :" + sig.String())
+		signalChan <- sigExit
 	}()
 }

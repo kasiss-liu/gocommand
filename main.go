@@ -145,7 +145,7 @@ func readConfig(filename string) error {
 	} else {
 		//设置主输出
 		err = setOutput(logPath)
-		if err != nil {
+		if err != nil && logPath != "" {
 			log.Println(err.Error())
 		}
 	}
