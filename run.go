@@ -33,12 +33,26 @@ func init() {
 }
 
 func Run() {
+
+	err := savePid()
+	//进程结束时 删除主进程和子进程的pid文件
+	defer func() {
+		delPidFile()
+		delChildPidsFile()
+	}()
+	if err != nil {
+		log.Println("run process prepare failed !")
+		return
+	}
+
 	//初始化状态机实力参数
-	InitTask()
+	initTask()
 	//向通道内预写入一个开始信号
 	go func() {
 		signalChan <- sigStart
 	}()
+	//启动监控服务数据同步器
+	syncStateToCopy()
 	//按照配置启动命令
 	for {
 		sig := <-signalChan
@@ -50,21 +64,21 @@ func Run() {
 			return
 		//接收到重载信号后更新cmd配置 结束所有进程并按照新配置重新启动进程
 		case sigReload:
-			err := ReloadTask()
+			err := reloadTask()
 			if err == nil {
 				log.Println("run prepare reload process ...")
-				ExitTask()
-				InitTask()
-				StartTask()
+				exitTask()
+				initTask()
+				startTask()
 				log.Println("run process reloaded !")
 			}
 		//接收到启动信号后 直接按照配置变量数据启动进程
 		case sigStart:
-			StartTask()
+			startTask()
 		//接收到退出信号后 按次序杀死管理的进程 退出主程序
 		case sigExit:
 			log.Println("run starting exit process ...")
-			ExitTask()
+			exitTask()
 			log.Println("run all process exit !")
 			return
 		default:
@@ -108,7 +122,7 @@ func runDeamonRoutine(id string, c *Command) {
 		_, err := c.Wait()
 		//如果程序异常导致运行结束 打印异常退出原因
 		if err != nil {
-			log.Println("cmd id:" + id + " errmsg:" + err.Error())
+			log.Println("run routine except exit cmd:" + id + " errmsg:" + err.Error())
 		}
 		//验证是否是管理程序主动退出协程
 		if _, ok := RunState.RunningList[id]; !ok {
@@ -153,7 +167,7 @@ func runDeamonRoutine(id string, c *Command) {
 }
 
 //执行退出时，停止所有管理的进程
-func ExitTask() {
+func exitTask() {
 	for id, cmd := range RunState.RunningList {
 		RunState.Numlock.Lock()
 		RunState.RunningNum--
@@ -169,7 +183,7 @@ func ExitTask() {
 }
 
 //重新读取配置 只更改cmd命令配置
-func ReloadTask() error {
+func reloadTask() error {
 	err := reloadConfigs()
 	if err != nil {
 		log.Println("run reload read config error : " + err.Error())
@@ -179,7 +193,7 @@ func ReloadTask() error {
 }
 
 //初始化任务状态机
-func InitTask() {
+func initTask() {
 	RunState = &State{}
 	//启动命令时 初始化状态数据
 	RunState.TasksNum = 0
@@ -192,7 +206,7 @@ func InitTask() {
 }
 
 //遍历启动所有cmd
-func StartTask() error {
+func startTask() error {
 	//服务已经启动过
 	if RunState.TasksNum > 0 {
 		startedErrmsg := "run start tasks has started"
@@ -206,6 +220,13 @@ func StartTask() error {
 			go runDeamonRoutine(id, cmd)
 			log.Println("run started cmd : " + id)
 		}
+	}
+	//如果首次启动 记录启动时间
+	if StartTime <= 0 {
+		StartTime = time.Now().Unix()
+	} else {
+		//记录每次重载的时间
+		ReloadTime = append(ReloadTime, time.Now().Unix())
 	}
 	return nil
 }

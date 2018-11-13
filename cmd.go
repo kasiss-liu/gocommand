@@ -25,8 +25,14 @@ func (c *Command) SetCron(express string) *Command {
 	return c
 }
 
+//验证是否是cron命令
 func (c *Command) IsCron() bool {
 	return c.isCron
+}
+
+//获取命令输出打印位置
+func (c *Command) Output() string {
+	return c.output
 }
 
 //命令启动

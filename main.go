@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/kasiss-liu/go-tools/load-config"
@@ -21,18 +22,23 @@ const (
 
 var (
 	configName = "taskeeper"
+	configPort = "127.0.0.1:6140"
 	configRaw  *loadConfig.Config
 	output     = os.Stdout
 	cmds       map[string]*Command
 	customGap  int64
 	sockPath   string
 	logPath    string
+	pidPath    string
+	cPidPath   string
 )
 
 //初始化命令map
 func init() {
 	cmds = make(map[string]*Command)
 	sockPath = "run/taskeeper.sock"
+	pidPath = "run/taskeeper.pid"
+	cPidPath = "run/taskeeper_childs.pid"
 }
 
 func main() {
@@ -40,6 +46,7 @@ func main() {
 	deamon := flag.Bool("d", false, "is run in deamonize")
 	//配置文件路径 默认为config/config.yml
 	config := flag.String("f", "config/config.yml", "config file in Yaml Format")
+
 	//解析命令行参数
 	flag.Parse()
 	//设置打印位置 默认为系统stdout
@@ -48,6 +55,11 @@ func main() {
 	err := checkConfig(*config)
 	if err != nil {
 		log.Fatalln(err.Error())
+	}
+	//检查pid文件
+	err = checkPidFile()
+	if err != nil {
+		log.Fatalln("check pid file failed ")
 	}
 	//判断是否为后台进程运行模式
 	//如果是 则由主进程启动一个子进程 运行命令
@@ -73,7 +85,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	//开启监听服务 接收管理客户端命令
-	signal.Notify(sysSigChan, os.Interrupt, os.Kill)
+	signal.Notify(sysSigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	startListenService()
 	//监听系统信号
 	listenSystemSig()

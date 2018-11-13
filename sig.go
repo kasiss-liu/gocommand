@@ -7,6 +7,9 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strconv"
+	"strings"
+	"sync"
 )
 
 const (
@@ -16,12 +19,20 @@ const (
 	sigStart  = 2  //启动协程
 )
 
+const (
+	msgSigCtl  = "ctl"
+	msgSigStat = "stat"
+)
+
 var (
-	sigMap      map[string]int
-	serviceDonw chan bool
-	s           *net.UnixListener
-	signalChan  chan int
-	sysSigChan  chan os.Signal
+	sigMap         map[string]int
+	statArgsMap    []string
+	serviceDonw    chan bool
+	unixServer     *net.UnixListener
+	tcpServer      *net.TCPListener
+	signalChan     chan int
+	sysSigChan     chan os.Signal
+	msgProcessLock sync.Mutex
 )
 
 func init() {
@@ -33,6 +44,11 @@ func init() {
 		"reload": sigReload,
 		"exit":   sigExit,
 	}
+	statArgsMap = []string{
+		"cmd",
+		"cmdlist",
+		"server",
+	}
 }
 
 func startListenService() {
@@ -40,25 +56,28 @@ func startListenService() {
 	switch runtime.GOOS {
 	case "windows":
 	//macos和linux 启动unix通信
-	case "darwin":
+	case "darwin", "linux":
+		tcpListen()
 		unixListen()
-	case "linux":
-
 	}
 }
 
-func unixListen() {
-	log.Println("listen service starting ...")
+//启动tcp通信
+func tcpListen() {
+	log.Println("tcp listen service starting ...")
 	var err error
-	s, err = net.ListenUnix("unix", &net.UnixAddr{Name: sockPath, Net: "unix"})
+	tcpAddr, err := net.ResolveTCPAddr("tcp", configPort)
 	if err != nil {
-		log.Fatalln("unix listen start faild : " + err.Error())
+		log.Fatalln("tcp listen start faild : " + err.Error())
 	}
-	s.SetUnlinkOnClose(true)
+	tcpServer, err = net.ListenTCP("tcp", tcpAddr)
+	if err != nil {
+		log.Fatalln("tcp listen start faild : " + err.Error())
+	}
 
 	go func() {
 		for {
-			c, err := s.AcceptUnix()
+			c, err := tcpServer.AcceptTCP()
 			if err != nil {
 				if _, ok := err.(*net.OpError); ok {
 					break
@@ -68,13 +87,14 @@ func unixListen() {
 				continue
 			}
 
-			go listenHandle(c)
+			go listenTCPHandle(c)
 		}
 	}()
-	log.Println("unix listen service started")
+	log.Println("tcp listen service started")
 }
 
-func listenHandle(c *net.UnixConn) {
+//处理unix链接
+func listenTCPHandle(c *net.TCPConn) {
 	reader := bufio.NewReader(c)
 	defer c.Close()
 	for {
@@ -87,26 +107,132 @@ func listenHandle(c *net.UnixConn) {
 			}
 			break
 		}
-
-		//		c.SetDeadline(time.Now().Add(5 * time.Second))
-		data := string(line)
-		//向通道内发送信号
-		if sig, ok := sigMap[data]; ok {
-			signalChan <- sig
-		} else {
-			log.Println("undefined signal name : " + data)
-		}
+		msg, errcode := msgProcess(line)
+		bytes := []byte(strconv.Itoa(errcode) + "|" + msg)
+		c.Write(bytes)
 	}
 }
 
+//启动unix通信
+func unixListen() {
+	log.Println("unix listen service starting ...")
+	var err error
+	unixServer, err = net.ListenUnix("unix", &net.UnixAddr{Name: sockPath, Net: "unix"})
+	if err != nil {
+		log.Fatalln("unix listen start faild : " + err.Error())
+	}
+	unixServer.SetUnlinkOnClose(true)
+
+	go func() {
+		for {
+			c, err := unixServer.AcceptUnix()
+			if err != nil {
+				if _, ok := err.(*net.OpError); ok {
+					break
+				}
+
+				log.Printf("unix listen accept error : %s\n", err.Error())
+				continue
+			}
+
+			go listenUnixHandle(c)
+		}
+	}()
+	log.Println("unix listen service started")
+}
+
+//处理unix链接
+func listenUnixHandle(c *net.UnixConn) {
+	reader := bufio.NewReader(c)
+	defer c.Close()
+	for {
+		line, _, err := reader.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				log.Println("client quit:" + err.Error())
+			} else {
+				log.Println("client error:" + err.Error())
+			}
+			break
+		}
+		msg, errcode := msgProcess(line)
+		bytes := []byte(strconv.Itoa(errcode) + "|" + msg)
+		c.Write(bytes)
+	}
+}
+
+//处理客户端消息内容
+//消息文本格式
+//`[命令类型] [命令] [参数]`
+//`ctl reload|exit `
+//`stat cmd id`
+//`stat cmdlist`
+//`stat server`
+func msgProcess(msg []byte) (string, int) {
+	msgProcessLock.Lock()
+	defer msgProcessLock.Unlock()
+
+	data := strings.Split(string(msg), " ")
+	if len(data) < 2 {
+		return "wrong message", -1
+	}
+	//匹配命令类型
+	switch data[0] {
+	case msgSigCtl:
+		return sendSignal(data[1])
+	case msgSigStat:
+		return sendStat(data[1:]...)
+	}
+	return "undefined ctl type", -1
+}
+
+//状态查询方法
+func sendStat(s ...string) (string, int) {
+	var msg string
+	switch s[0] {
+	case statArgsMap[0]:
+		if len(s) < 2 {
+			return "miss cmd id", -1
+		}
+		msg = getCmd(s[1])
+	case statArgsMap[1]:
+		msg = getCmdList()
+	case statArgsMap[2]:
+		msg = getRunningStatus()
+	}
+
+	if len([]byte(msg)) > 1 {
+		return msg, 0
+	} else {
+		return msg, -1
+	}
+
+}
+
+//控制发送信号方法
+func sendSignal(s string) (msg string, errcode int) {
+
+	//向通道内发送信号
+	if sig, ok := sigMap[s]; ok {
+		errcode = 0
+		msg = "ok"
+		signalChan <- sig
+
+	} else {
+		msg = "undefined signal name : " + s
+		errcode = -1
+		log.Println(msg)
+	}
+	return
+}
+
+//关闭监听服务
 func stopListenSerivce() {
 	switch runtime.GOOS {
 	case "windows":
-	case "darwin":
-		s.Close()
+	case "darwin", "linux":
+		unixServer.Close()
 		log.Println("unix listen service stopped")
-	case "linux":
-
 	}
 }
 
