@@ -1,3 +1,5 @@
 taskeeper
 run/*
 *.log
+cover.out
+test/*.log

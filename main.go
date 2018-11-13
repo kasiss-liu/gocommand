@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -21,31 +22,46 @@ const (
 )
 
 var (
-	configName = "taskeeper"
-	configPort = "127.0.0.1:6140"
-	configRaw  *loadConfig.Config
-	output     = os.Stdout
-	cmds       map[string]*Command
-	customGap  int64
-	sockPath   string
-	logPath    string
-	pidPath    string
-	cPidPath   string
+	configName     = "taskeeper"
+	configPort     = "127.0.0.1:17101"
+	configRaw      *loadConfig.Config
+	output         = os.Stdout
+	cmds           map[string]*Command
+	customGap      int64
+	sockPath       string
+	logPath        string
+	pidPath        string
+	cPidPath       string
+	DefaultLogPath string
 )
 
 //初始化命令map
 func init() {
 	cmds = make(map[string]*Command)
-	sockPath = "run/taskeeper.sock"
-	pidPath = "run/taskeeper.pid"
-	cPidPath = "run/taskeeper_childs.pid"
+	//统一状态文件存放位置 保证多个程序读取到同一个pid文件
+	//防止启动多个keeper导致管理混乱
+	switch runtime.GOOS {
+	case "windows":
+		sockPath = os.Getenv("TEMP") + "/taskeeper.sock"
+		pidPath = os.Getenv("TEMP") + "/taskeeper.pid"
+		cPidPath = os.Getenv("TEMP") + "/taskeeper_childs.pid"
+		DefaultLogPath = os.Getenv("TEMP") + "/taskeeper.log"
+	case "darwin", "linux":
+		sockPath = "/tmp/taskeeper.sock"
+		pidPath = "/tmp/taskeeper.pid"
+		cPidPath = "/tmp/taskeeper_childs.pid"
+		DefaultLogPath = "/tmp/taskeeper.log"
+	}
+
 }
 
 func main() {
 	//默认为前台运行 加参数-d 变为后台进程运行
 	deamon := flag.Bool("d", false, "is run in deamonize")
 	//配置文件路径 默认为config/config.yml
-	config := flag.String("f", "config/config.yml", "config file in Yaml Format")
+	config := flag.String("c", "config/config.yml", "config file in Yaml Format")
+	//是否启用 日志强制打印
+	forceLog := flag.Bool("flog", false, "is force to print log")
 
 	//解析命令行参数
 	flag.Parse()
@@ -67,11 +83,10 @@ func main() {
 		//判断当前进程是否为子进程 如果不是子进程 可以启动后台进程
 		//Getppid 获取父进程进程id
 		if os.Getppid() != 1 {
-			cmd := NewCommand(os.Args[0], []string{"-f", *config}, "")
+			cmd := NewCommand(os.Args[0], []string{"-c", *config, "-flog"}, "")
 			pid := cmd.Start()
 			if pid > 0 {
 				fmt.Printf("+[%d]\n", cmd.Pid())
-
 			}
 			return
 		}
@@ -80,6 +95,23 @@ func main() {
 	}
 	//读取配置文件内容
 	err = readConfig(*config)
+	//更改打印输出位置
+	if len([]byte(logPath)) > 0 {
+		//设置主输出
+		err = setOutput(logPath)
+		if err != nil {
+			log.Println(err.Error())
+		}
+	} else {
+		//如果这是后台模式启动的守护进程 且没有配置输出地址
+		//将启用默认配置的日志路径
+		if *forceLog {
+			err = setOutput(DefaultLogPath)
+			if err != nil {
+				log.Println(err.Error())
+			}
+		}
+	}
 	//如果配置文件有误 进程不能启动
 	if err != nil {
 		log.Fatalln(err)
@@ -108,13 +140,14 @@ func reloadConfigs() error {
 	if err != nil {
 		return err
 	}
-	tmpCmds := make(map[string]*Command)
 	if len(commands) > 0 {
+		cmds = make(map[string]*Command)
 		for _, cmdmap := range commands {
 			cnf := loadConfig.BuildConfig(cmdmap)
 			cmd, _ := cnf.Get("cmd").String()
 			output, _ := cnf.Get("output").String()
 			args, _ := cnf.Get("args").ArrayString()
+			log.Println(len([]byte(cmd)))
 			if len([]byte(cmd)) > 0 {
 				c := NewCommand(cmd, args, output)
 				cron, _ := cnf.Get("cron").String()
@@ -122,10 +155,9 @@ func reloadConfigs() error {
 					c.SetCron(cron)
 				}
 				c.SetId(createID())
-				tmpCmds[c.ID()] = c
+				cmds[c.ID()] = c
 			}
 		}
-		cmds = tmpCmds
 		return nil
 	}
 	return errors.New("No Legal Command Registered!")
@@ -154,12 +186,6 @@ func readConfig(filename string) error {
 	logPath, err = configRaw.Get("log").String()
 	if err != nil {
 		log.Println(err.Error())
-	} else {
-		//设置主输出
-		err = setOutput(logPath)
-		if err != nil && logPath != "" {
-			log.Println(err.Error())
-		}
 	}
 	//加载容错时间
 	brokenGap, err := configRaw.Get("broken_gap").Int()
@@ -216,10 +242,13 @@ func setOutput(logPath string) (err error) {
 	return nil
 }
 
+//随机数因子
+//用以解决windows下出现的同一时刻
+//会产生同一随机数的问题
+var randSeed int64 = 0
+
 //获取随机字符串
 func getChar() string {
-
-	rand.Seed(time.Now().UnixNano())
 	switch rand.Intn(3) {
 	case 0:
 		return string(65 + rand.Intn(90-65))
@@ -231,6 +260,7 @@ func getChar() string {
 }
 func createID() string {
 	for {
+		rand.Seed(time.Now().UTC().UnixNano() + randSeed)
 		var result bytes.Buffer
 		var temp string
 		for i := 0; i < 10; {
@@ -241,6 +271,7 @@ func createID() string {
 		if _, ok := cmds[result.String()]; ok {
 			continue
 		}
+		randSeed++
 		return result.String()
 	}
 }

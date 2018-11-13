@@ -2,18 +2,16 @@ log: ""
 broken_gap: 10
 cmds:
  - 
-  cmd: /usr/bin/php
+  cmd: test/test.exe
   args: 
-   - test/test.php
    - ak
    - av
-  output: ./php.log 
+  output: test/test.log 
  - 
-  cmd: "/usr/bin/php"
+  cmd: "test/test"
   args: 
-   - "test/test.php"
    - "ak"
    - "av"
-  output: "./php.log"
+  output: "test/test.log"
   cron: "* * * * *"
    

@@ -55,6 +55,7 @@ func startListenService() {
 	//windows下暂时不做处理
 	switch runtime.GOOS {
 	case "windows":
+		tcpListen()
 	//macos和linux 启动unix通信
 	case "darwin", "linux":
 		tcpListen()
@@ -90,7 +91,7 @@ func tcpListen() {
 			go listenTCPHandle(c)
 		}
 	}()
-	log.Println("tcp listen service started")
+	log.Println("tcp listen service started at " + configPort)
 }
 
 //处理unix链接
@@ -107,8 +108,8 @@ func listenTCPHandle(c *net.TCPConn) {
 			}
 			break
 		}
-		msg, errcode := msgProcess(line)
-		bytes := []byte(strconv.Itoa(errcode) + "|" + msg)
+		msg, errcode, format := msgProcess(line)
+		bytes := getResponseBytes(errcode, msg, format)
 		c.Write(bytes)
 	}
 }
@@ -130,7 +131,6 @@ func unixListen() {
 				if _, ok := err.(*net.OpError); ok {
 					break
 				}
-
 				log.Printf("unix listen accept error : %s\n", err.Error())
 				continue
 			}
@@ -155,8 +155,8 @@ func listenUnixHandle(c *net.UnixConn) {
 			}
 			break
 		}
-		msg, errcode := msgProcess(line)
-		bytes := []byte(strconv.Itoa(errcode) + "|" + msg)
+		msg, errcode, format := msgProcess(line)
+		bytes := getResponseBytes(errcode, msg, format)
 		c.Write(bytes)
 	}
 }
@@ -168,22 +168,32 @@ func listenUnixHandle(c *net.UnixConn) {
 //`stat cmd id`
 //`stat cmdlist`
 //`stat server`
-func msgProcess(msg []byte) (string, int) {
+func msgProcess(msg []byte) (string, int, bool) {
 	msgProcessLock.Lock()
 	defer msgProcessLock.Unlock()
-
+	format := false
+	argStart := 1
 	data := strings.Split(string(msg), " ")
 	if len(data) < 2 {
-		return "wrong message", -1
+		return "wrong message", -1, format
+	}
+	if data[1] == "f" {
+		format = true
+		argStart++
+	}
+	if format && len(data) < 3 {
+		return "wrong message", -1, false
 	}
 	//匹配命令类型
 	switch data[0] {
 	case msgSigCtl:
-		return sendSignal(data[1])
+		msg, errcode := sendSignal(data[argStart])
+		return msg, errcode, format
 	case msgSigStat:
-		return sendStat(data[1:]...)
+		msg, errcode := sendStat(data[argStart:]...)
+		return msg, errcode, format
 	}
-	return "undefined ctl type", -1
+	return "undefined ctl type", -1, format
 }
 
 //状态查询方法
@@ -206,7 +216,15 @@ func sendStat(s ...string) (string, int) {
 	} else {
 		return msg, -1
 	}
+}
 
+//格式化响应数据
+func getResponseBytes(errcode int, msg string, format bool) []byte {
+	fmtStr := "json"
+	if format {
+		fmtStr = "pretty"
+	}
+	return []byte(strconv.Itoa(errcode) + "|" + msg + "|format:" + fmtStr + "\n")
 }
 
 //控制发送信号方法

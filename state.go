@@ -145,7 +145,6 @@ func getCmdList() string {
 	for id, _ := range cmds {
 		list = append(list, getCmd(id))
 	}
-
 	data, err := json.Marshal(list)
 	if err != nil {
 		log.Println("running state error getCmdList : " + err.Error())
@@ -197,7 +196,8 @@ func checkPidFile() error {
 		return nil
 	}
 	_, err = os.FindProcess(pid)
-
+	//	process, err := os.FindProcess(pid)
+	//	log.Println(process, err)
 	if err != nil {
 		log.Println("pid check find process : " + err.Error())
 		return nil
