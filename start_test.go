@@ -1,4 +1,4 @@
-package main
+package taskeeper
 
 import (
 	"net"
@@ -6,7 +6,9 @@ import (
 	"time"
 )
 
-func TestMain(t *testing.T) {
+func TestStart(t *testing.T) {
+	ok := SetWorkDir("/usr/src/app/src/github.com/kasiss-liu/taskeeper/keeper")
+	t.Log("set workdir ", ok)
 	go func() {
 		time.Sleep(3 * time.Second)
 		msg, err := sendSignal("reload")
@@ -79,5 +81,5 @@ func TestMain(t *testing.T) {
 		}
 
 	}()
-	main()
+	Start("config/config.yml", false, true)
 }

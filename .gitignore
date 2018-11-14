@@ -1,6 +1,6 @@
-taskeeper
-run/*
+keeper/keeper
+keeper/keeper.exe
 *.log
 cover.out
-test/*.log
+keeper/test/*.log
 taskeeper.exe

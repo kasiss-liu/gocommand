@@ -1,4 +1,4 @@
-package main
+package taskeeper
 
 import (
 	"os"
@@ -10,11 +10,11 @@ func TestCmd(t *testing.T) {
 	var cmdstr string
 	switch runtime.GOOS {
 	case "windows":
-		cmdstr = "test/test.exe"
+		cmdstr = "keeper/test/test.exe"
 	case "darwin":
-		cmdstr = "test/test_darwin"
+		cmdstr = "keeper/test/test_darwin"
 	case "linux":
-		cmdstr = "test/test_linux"
+		cmdstr = "keeper/test/test_linux"
 	}
 	cmd := NewCommand(cmdstr, []string{" hello ", " world "}, "test/cmd.test.log")
 

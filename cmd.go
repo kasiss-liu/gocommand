@@ -1,4 +1,4 @@
-package main
+package taskeeper
 
 import (
 	"log"
@@ -51,7 +51,7 @@ func (c *Command) Start() int {
 		return c.pid
 	}
 
-	log.Println(c.cmd + " start failed" + err.Error())
+	log.Println(c.cmd + " start failed : " + err.Error())
 	return 0
 }
 func (c *Command) ID() string {

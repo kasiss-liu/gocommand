@@ -3,7 +3,7 @@ port: ""
 broken_gap: 10
 cmds:
  - 
-  cmd: test/test_darwin
+  cmd: test/test.exe
   args: 
    - ak
    - av

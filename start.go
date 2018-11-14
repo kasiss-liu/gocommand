@@ -1,9 +1,8 @@
-package main
+package taskeeper
 
 import (
 	"bytes"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -12,6 +11,7 @@ import (
 	"path"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -40,6 +40,7 @@ var (
 	cPidPath       string
 	DefaultLogPath string
 	workDir        string
+	sysDirSep      string
 )
 
 //初始化命令map
@@ -49,10 +50,10 @@ func init() {
 	//防止启动多个keeper导致管理混乱
 	switch runtime.GOOS {
 	case "windows":
-		sockPath = os.Getenv("TEMP") + "/taskeeper.sock"
-		pidPath = os.Getenv("TEMP") + "/taskeeper.pid"
-		cPidPath = os.Getenv("TEMP") + "/taskeeper_childs.pid"
-		DefaultLogPath = os.Getenv("TEMP") + "/taskeeper.log"
+		sockPath = os.Getenv("TEMP") + "\\taskeeper.sock"
+		pidPath = os.Getenv("TEMP") + "\\taskeeper.pid"
+		cPidPath = os.Getenv("TEMP") + "\\taskeeper_childs.pid"
+		DefaultLogPath = os.Getenv("TEMP") + "\\taskeeper.log"
 	case "darwin", "linux":
 		_, err := os.Stat(UnixSysRunDir)
 		if os.IsNotExist(err) || os.IsPermission(err) {
@@ -68,31 +69,21 @@ func init() {
 	}
 	configHost = DefaultHost
 	configPort = configHost + ":" + DefaultPort
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal("get work dir failed")
-	} else {
-		workDir = dir
-	}
+	sysDirSep = string(os.PathSeparator)
 
 }
 
-func main() {
-	//默认为前台运行 加参数-d 变为后台进程运行
-	deamon := flag.Bool("d", false, "is run in deamonize")
-	//配置文件路径 默认为config/config.yml
-	config := flag.String("c", "config/config.yml", "config file in Yaml Format")
-	//是否启用 日志强制打印
-	forceLog := flag.Bool("flog", false, "is force to print log")
+func Start(configPath string, deamon, forceLog bool) {
 
-	//解析命令行参数
-	flag.Parse()
-	//设置打印位置 默认为系统stdout
 	log.SetOutput(output)
+
+	if workDir == "" {
+		workDir = GetParentDir(os.Args[0])
+	}
 	//检查配置文件是否存在
-	err := checkConfig(*config)
+	err := checkConfig(configPath)
 	if err != nil {
-		log.Fatalln(err.Error())
+		log.Fatalln("check config error : " + err.Error())
 	}
 	//检查pid文件
 	err = checkPidFile()
@@ -101,11 +92,11 @@ func main() {
 	}
 	//判断是否为后台进程运行模式
 	//如果是 则由主进程启动一个子进程 运行命令
-	if *deamon {
+	if deamon {
 		//判断当前进程是否为子进程 如果不是子进程 可以启动后台进程
 		//Getppid 获取父进程进程id
 		if os.Getppid() != 1 {
-			cmd := NewCommand(os.Args[0], []string{"-c", *config, "-flog"}, "")
+			cmd := NewCommand(os.Args[0], []string{"-c", configPath, "-flog", "-w", workDir}, "")
 			pid := cmd.Start()
 			if pid > 0 {
 				fmt.Printf("+[%d]\n", cmd.Pid())
@@ -116,28 +107,28 @@ func main() {
 		return
 	}
 	//读取配置文件内容
-	err = readConfig(*config)
+	err = readConfig(configPath)
 	//更改打印输出位置
 	if len([]byte(logPath)) > 0 {
 		//设置主输出
 		err = setOutput(logPath)
 		if err != nil {
-			log.Println(err.Error())
+			log.Println("set output error :" + err.Error())
 		}
 	} else {
 		//如果这是后台模式启动的守护进程 且没有配置输出地址
 		//将启用默认配置的日志路径
-		if *forceLog {
+		if forceLog {
 			err = setOutput(DefaultLogPath)
 			if err != nil {
-				log.Println(err.Error())
+				log.Println("set output error :" + err.Error())
 			}
 			logPath = DefaultLogPath
 		}
 	}
 	//如果配置文件有误 进程不能启动
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("config file error : " + err.Error())
 	}
 	//开启监听服务 接收管理客户端命令
 	signal.Notify(sysSigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -189,6 +180,7 @@ func reloadConfigs() error {
 
 //判断配置文件是否存在
 func checkConfig(filename string) error {
+	filename = getAbsPath(filename)
 	_, err := os.Stat(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -286,8 +278,9 @@ func setOutput(logPath string) (err error) {
 //补充工作路径
 func getAbsPath(p string) string {
 	if !path.IsAbs(p) {
-		p = workDir + "/" + p
+		p = workDir + sysDirSep + p
 	}
+	//	fmt.Println(p)
 	return p
 }
 
@@ -323,4 +316,21 @@ func createID() string {
 		randSeed++
 		return result.String()
 	}
+}
+
+//获取父级目录地址
+func GetParentDir(p string) string {
+	p = strings.Replace(p, "\\", sysDirSep, -1)
+	p = strings.Replace(p, "/", sysDirSep, -1)
+	parr := strings.Split(p, sysDirSep)
+	return strings.Join(parr[:len(parr)-1], sysDirSep)
+}
+
+//外部设置工作目录
+func SetWorkDir(dir string) bool {
+	if path.IsAbs(dir) {
+		workDir = dir
+		return true
+	}
+	return false
 }
