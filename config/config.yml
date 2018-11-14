@@ -1,8 +1,9 @@
 log: ""
+port: ""
 broken_gap: 10
 cmds:
  - 
-  cmd: test/test.exe
+  cmd: test/test_darwin
   args: 
    - ak
    - av

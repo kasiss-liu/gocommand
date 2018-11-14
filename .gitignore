@@ -3,3 +3,4 @@ run/*
 *.log
 cover.out
 test/*.log
+taskeeper.exe

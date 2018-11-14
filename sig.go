@@ -20,6 +20,24 @@ const (
 )
 
 const (
+	ErrResCodeNo = iota
+	ErrResWrgMsg
+	ErrResUdfCtl
+	ErrResMissCmd
+	ErrResStatNil
+	ErrResWrgSig
+)
+
+var ErrMsgMap = []string{
+	"success",
+	"wrong message",
+	"undefined ctl type",
+	"miss cmd id",
+	"found nil args",
+	"undefined signal",
+}
+
+const (
 	msgSigCtl  = "ctl"
 	msgSigStat = "stat"
 )
@@ -102,9 +120,9 @@ func listenTCPHandle(c *net.TCPConn) {
 		line, _, err := reader.ReadLine()
 		if err != nil {
 			if err == io.EOF {
-				log.Println("client quit:" + err.Error())
+				log.Println("tcp client quit:" + err.Error())
 			} else {
-				log.Println("client error:" + err.Error())
+				log.Println("tcp client error:" + err.Error())
 			}
 			break
 		}
@@ -149,9 +167,9 @@ func listenUnixHandle(c *net.UnixConn) {
 		line, _, err := reader.ReadLine()
 		if err != nil {
 			if err == io.EOF {
-				log.Println("client quit:" + err.Error())
+				log.Println("unix client quit:" + err.Error())
 			} else {
-				log.Println("client error:" + err.Error())
+				log.Println("unix client error:" + err.Error())
 			}
 			break
 		}
@@ -168,21 +186,21 @@ func listenUnixHandle(c *net.UnixConn) {
 //`stat cmd id`
 //`stat cmdlist`
 //`stat server`
-func msgProcess(msg []byte) (string, int, bool) {
+func msgProcess(msg []byte) (interface{}, int, bool) {
 	msgProcessLock.Lock()
 	defer msgProcessLock.Unlock()
 	format := false
 	argStart := 1
 	data := strings.Split(string(msg), " ")
 	if len(data) < 2 {
-		return "wrong message", -1, format
+		return ErrMsgMap[ErrResWrgMsg], ErrResWrgMsg, false
 	}
 	if data[1] == "f" {
 		format = true
 		argStart++
 	}
 	if format && len(data) < 3 {
-		return "wrong message", -1, false
+		return ErrMsgMap[ErrResWrgMsg], ErrResWrgMsg, false
 	}
 	//匹配命令类型
 	switch data[0] {
@@ -193,16 +211,17 @@ func msgProcess(msg []byte) (string, int, bool) {
 		msg, errcode := sendStat(data[argStart:]...)
 		return msg, errcode, format
 	}
-	return "undefined ctl type", -1, format
+	return ErrMsgMap[ErrResUdfCtl], ErrResUdfCtl, false
 }
 
 //状态查询方法
-func sendStat(s ...string) (string, int) {
-	var msg string
+func sendStat(s ...string) (interface{}, int) {
+	var msg interface{}
 	switch s[0] {
 	case statArgsMap[0]:
 		if len(s) < 2 {
-			return "miss cmd id", -1
+			msg = ErrMsgMap[ErrResMissCmd]
+			return msg, ErrResMissCmd
 		}
 		msg = getCmd(s[1])
 	case statArgsMap[1]:
@@ -211,20 +230,22 @@ func sendStat(s ...string) (string, int) {
 		msg = getRunningStatus()
 	}
 
-	if len([]byte(msg)) > 1 {
-		return msg, 0
-	} else {
-		return msg, -1
+	if msg != nil {
+		return msg, ErrResCodeNo
 	}
+	msg = ErrMsgMap[ErrResStatNil] + " : " + strings.Join(s, " ")
+	return msg, ErrResStatNil
 }
 
 //格式化响应数据
-func getResponseBytes(errcode int, msg string, format bool) []byte {
-	fmtStr := "json"
-	if format {
-		fmtStr = "pretty"
+func getResponseBytes(errcode int, msgData interface{}, format bool) []byte {
+	var msg string
+	fmtStr := "compact|"
+	if format && errcode == 0 {
+		fmtStr = "pretty|\n"
 	}
-	return []byte(strconv.Itoa(errcode) + "|" + msg + "|format:" + fmtStr + "\n")
+	msg, _ = prettyJson(msgData, format)
+	return []byte(strconv.Itoa(errcode) + "|format:" + fmtStr + msg + "\n")
 }
 
 //控制发送信号方法
@@ -237,8 +258,8 @@ func sendSignal(s string) (msg string, errcode int) {
 		signalChan <- sig
 
 	} else {
-		msg = "undefined signal name : " + s
-		errcode = -1
+		msg = ErrMsgMap[ErrResWrgSig] + " : " + s
+		errcode = ErrResWrgSig
 		log.Println(msg)
 	}
 	return

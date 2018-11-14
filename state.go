@@ -15,6 +15,8 @@ var (
 	StateCopy  State   //监控服务状态的备份 用于返回客户端查询请求
 	StartTime  int64   //监控服务启动时间
 	ReloadTime []int64 //监控服务重载的时间点
+	fmtIdent   = strings.Repeat(" ", 4)
+	fmtPrefix  = ""
 )
 
 func copyState() State {
@@ -65,16 +67,16 @@ func delChildPidsFile() error {
 
 //服务状态
 type RunningStatus struct {
-	StartTime      int64    `json:start_time`
-	ReloadTime     []int64  `json:reload_time_list`
-	TotalTasks     int      `json:task_total_num`
-	RunningTasks   []string `json:running_task_list`
-	TermTasks      []string `json:term_task_list`
-	RunningSeconds int64    `json:running_seconds`
+	StartTime      int64    `json:"start_time"`
+	ReloadTime     []int64  `json:"reload_time_list"`
+	TotalTasks     int      `json:"task_total_num"`
+	RunningTasks   []string `json:"running_task_list"`
+	TermTasks      []string `json:"term_task_list"`
+	RunningSeconds int64    `json:"running_seconds"`
 }
 
 //获取监控服务的运行状态
-func getRunningStatus() string {
+func getRunningStatus() interface{} {
 	runSec := time.Now().Unix() - StartTime
 	runList := make([]string, 0, 5)
 	termList := make([]string, 0, 5)
@@ -86,71 +88,94 @@ func getRunningStatus() string {
 		termList = append(termList, tid)
 	}
 
-	data, err := json.Marshal(RunningStatus{
+	return RunningStatus{
 		StartTime:      StartTime,
 		ReloadTime:     ReloadTime,
 		TotalTasks:     RunState.TasksNum,
 		RunningTasks:   runList,
 		TermTasks:      termList,
 		RunningSeconds: runSec,
-	})
-	if err != nil {
-		log.Println("running state error getRunningStatus : " + err.Error())
-		return ""
 	}
-	return string(data)
 }
 
 type CmdStatus struct {
-	Pid        int    `json:pid`
-	Cmd        string `json:cmd`
-	Output     string `json:output`
-	BkTimes    int    `json:brokens`
-	LastBkTime int64  `json:last_broken_time`
+	ID         string `json:"id"`
+	Pid        int    `json:"pid"`
+	Cmd        string `json:"cmd"`
+	Output     string `json:"output"`
+	BkTimes    int    `json:"brokens"`
+	LastBkTime string `json:"last_broken_time"`
 }
 
 //按照id 获取单个cmd的运行状态
-func getCmd(id string) string {
+func getCmd(id string) interface{} {
 	var cmdCopy Command
-	if cmd, ok := cmds[id]; ok {
-		var bktimes int = 0
-		var lastbk int64 = 0
-		if _, ok := StateCopy.BrokenTries[id]; ok {
-			bktimes = StateCopy.BrokenTries[id]
-			lastbk = StateCopy.BrokenPoints[id]
-		}
 
-		cmdCopy = *cmd
-		cmdStr := cmdCopy.cmd + " " + strings.Join(cmdCopy.args, " ")
-		data, err := json.Marshal(CmdStatus{
-			Pid:        cmdCopy.Pid(),
-			Output:     cmdCopy.Output(),
-			BkTimes:    bktimes,
-			LastBkTime: lastbk,
-			Cmd:        cmdStr,
-		})
-		if err != nil {
-			log.Println("running state error getCmd : " + err.Error())
-			return ""
+	if id, ok := findCmdId(id); ok {
+		if cmd, ok := cmds[id]; ok {
+			var bktimes int = 0
+			var lastbk int64 = 0
+			if _, ok := StateCopy.BrokenTries[id]; ok {
+				bktimes = StateCopy.BrokenTries[id]
+				lastbk = StateCopy.BrokenPoints[id]
+			}
+
+			cmdCopy = *cmd
+			var bk = "null"
+			if lastbk > 0 {
+				bk = time.Unix(lastbk, 0).Format("2006-01-02 15:04:05")
+			}
+
+			cmdStr := cmdCopy.cmd + " " + strings.Join(cmdCopy.args, " ")
+			return CmdStatus{
+				ID:         cmdCopy.ID(),
+				Pid:        cmdCopy.Pid(),
+				Output:     cmdCopy.Output(),
+				BkTimes:    bktimes,
+				LastBkTime: bk,
+				Cmd:        cmdStr,
+			}
 		}
-		return string(data)
 	}
 	log.Println("runnning state error getCmd : can not find cmd id `" + id + "`")
-	return ""
+	return nil
+}
+
+//按传入的id片段 查找完整的命令id
+func findCmdId(id string) (string, bool) {
+	for k, _ := range cmds {
+		if strings.HasPrefix(k, id) {
+			return k, true
+		}
+	}
+	return id, false
 }
 
 // 获取所有cmdList的运行状态
-func getCmdList() string {
-	var list = make([]string, 0, 5)
+func getCmdList() interface{} {
+	var list = make([]interface{}, 0, 5)
 	for id, _ := range cmds {
-		list = append(list, getCmd(id))
+		cmd := getCmd(id)
+		if cmd != nil {
+			list = append(list, getCmd(id))
+		}
 	}
-	data, err := json.Marshal(list)
-	if err != nil {
-		log.Println("running state error getCmdList : " + err.Error())
-		return ""
+	return list
+}
+
+//给json增加锁进 适合阅读
+func prettyJson(jsonData interface{}, format bool) (string, error) {
+	var byteData []byte
+	var err error
+	if format {
+		byteData, err = json.MarshalIndent(jsonData, fmtPrefix, fmtIdent)
+	} else {
+		byteData, err = json.Marshal(jsonData)
 	}
-	return string(data)
+	if err == nil {
+		return string(byteData), nil
+	}
+	return "", err
 }
 
 //保存主进程id
@@ -215,7 +240,6 @@ func delPidFile() error {
 	if os.IsNotExist(err) {
 		return nil
 	}
-
 	err = os.Remove(pidPath)
 	if err != nil {
 		log.Println("pid remove pid file error : " + err.Error())

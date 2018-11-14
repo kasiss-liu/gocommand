@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"path"
 	"runtime"
 	"strconv"
 	"syscall"
@@ -19,11 +20,14 @@ import (
 
 const (
 	DefaultBrokenGap int64 = 5 //second
+	DefaultHost            = "127.0.0.1"
+	DefaultPort            = "17101"
 )
 
 var (
 	configName     = "taskeeper"
-	configPort     = "127.0.0.1:17101"
+	configHost     string
+	configPort     string
 	configRaw      *loadConfig.Config
 	output         = os.Stdout
 	cmds           map[string]*Command
@@ -33,6 +37,7 @@ var (
 	pidPath        string
 	cPidPath       string
 	DefaultLogPath string
+	workDir        string
 )
 
 //初始化命令map
@@ -47,10 +52,18 @@ func init() {
 		cPidPath = os.Getenv("TEMP") + "/taskeeper_childs.pid"
 		DefaultLogPath = os.Getenv("TEMP") + "/taskeeper.log"
 	case "darwin", "linux":
-		sockPath = "/tmp/taskeeper.sock"
-		pidPath = "/tmp/taskeeper.pid"
-		cPidPath = "/tmp/taskeeper_childs.pid"
+		sockPath = "/var/run/taskeeper.sock"
+		pidPath = "/var/run/taskeeper.pid"
+		cPidPath = "/var/run/taskeeper_childs.pid"
 		DefaultLogPath = "/tmp/taskeeper.log"
+	}
+	configHost = DefaultHost
+	configPort = configHost + ":" + DefaultPort
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal("get work dir failed")
+	} else {
+		workDir = dir
 	}
 
 }
@@ -145,9 +158,10 @@ func reloadConfigs() error {
 		for _, cmdmap := range commands {
 			cnf := loadConfig.BuildConfig(cmdmap)
 			cmd, _ := cnf.Get("cmd").String()
+			cmd = getAbsPath(cmd)
 			output, _ := cnf.Get("output").String()
+			output = getAbsPath(output)
 			args, _ := cnf.Get("args").ArrayString()
-			log.Println(len([]byte(cmd)))
 			if len([]byte(cmd)) > 0 {
 				c := NewCommand(cmd, args, output)
 				cron, _ := cnf.Get("cron").String()
@@ -177,6 +191,7 @@ func checkConfig(filename string) error {
 //读取配置文件内容
 func readConfig(filename string) error {
 	var err error
+	filename = getAbsPath(filename)
 	//读取原始内容
 	configRaw, err = loadConfig.NewConfig(configName, filename)
 	if err != nil {
@@ -187,6 +202,20 @@ func readConfig(filename string) error {
 	if err != nil {
 		log.Println(err.Error())
 	}
+	//加载允许访问的host
+	if !configRaw.Get("host").IsNil() {
+		configHost, _ = configRaw.Get("host").String()
+	}
+	//加载启用的端口
+	if !configRaw.Get("port").IsNil() {
+		if port, err := configRaw.Get("port").Int(); err == nil {
+			configPort = configHost + ":" + strconv.Itoa(port)
+		}
+		if portStr, err := configRaw.Get("port").String(); err == nil && len(portStr) > 0 {
+			configPort = configHost + ":" + portStr
+		}
+	}
+
 	//加载容错时间
 	brokenGap, err := configRaw.Get("broken_gap").Int()
 	if err != nil {
@@ -205,7 +234,9 @@ func readConfig(filename string) error {
 		for _, cmdmap := range commands {
 			cnf := loadConfig.BuildConfig(cmdmap)
 			cmd, _ := cnf.Get("cmd").String()
+			cmd = getAbsPath(cmd)
 			output, _ := cnf.Get("output").String()
+			output = getAbsPath(output)
 			args, _ := cnf.Get("args").ArrayString()
 			if len([]byte(cmd)) > 0 {
 				c := NewCommand(cmd, args, output)
@@ -240,6 +271,14 @@ func setOutput(logPath string) (err error) {
 	}
 	output = newOutput
 	return nil
+}
+
+//补充工作路径
+func getAbsPath(p string) string {
+	if !path.IsAbs(p) {
+		p = workDir + "/" + p
+	}
+	return p
 }
 
 //随机数因子
