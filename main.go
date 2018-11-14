@@ -22,6 +22,8 @@ const (
 	DefaultBrokenGap int64 = 5 //second
 	DefaultHost            = "127.0.0.1"
 	DefaultPort            = "17101"
+	UnixSysRunDir          = "/var/run/"
+	UnixSysTmpDir          = "/tmp/"
 )
 
 var (
@@ -52,9 +54,16 @@ func init() {
 		cPidPath = os.Getenv("TEMP") + "/taskeeper_childs.pid"
 		DefaultLogPath = os.Getenv("TEMP") + "/taskeeper.log"
 	case "darwin", "linux":
-		sockPath = "/var/run/taskeeper.sock"
-		pidPath = "/var/run/taskeeper.pid"
-		cPidPath = "/var/run/taskeeper_childs.pid"
+		_, err := os.Stat(UnixSysRunDir)
+		if os.IsNotExist(err) || os.IsPermission(err) {
+			sockPath = UnixSysRunDir + "taskeeper.sock"
+			pidPath = UnixSysRunDir + "taskeeper.pid"
+			cPidPath = UnixSysRunDir + "taskeeper_childs.pid"
+		} else {
+			sockPath = UnixSysTmpDir + "taskeeper.sock"
+			pidPath = UnixSysTmpDir + "taskeeper.pid"
+			cPidPath = UnixSysTmpDir + "taskeeper_childs.pid"
+		}
 		DefaultLogPath = "/tmp/taskeeper.log"
 	}
 	configHost = DefaultHost
@@ -123,6 +132,7 @@ func main() {
 			if err != nil {
 				log.Println(err.Error())
 			}
+			logPath = DefaultLogPath
 		}
 	}
 	//如果配置文件有误 进程不能启动

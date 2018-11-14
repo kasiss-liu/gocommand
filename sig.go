@@ -66,6 +66,7 @@ func init() {
 		"cmd",
 		"cmdlist",
 		"server",
+		"config",
 	}
 }
 
@@ -187,20 +188,32 @@ func listenUnixHandle(c *net.UnixConn) {
 //`stat cmdlist`
 //`stat server`
 func msgProcess(msg []byte) (interface{}, int, bool) {
+
 	msgProcessLock.Lock()
 	defer msgProcessLock.Unlock()
 	format := false
 	argStart := 1
-	data := strings.Split(string(msg), " ")
+
+	msgStr := strings.TrimSpace(string(msg))
+
+	//先暴力的去除空格 以后再优化
+	datas := strings.Split(msgStr, " ")
+	var data []string
+	for _, v := range datas {
+		if len([]byte(v)) > 0 {
+			data = append(data, v)
+		}
+	}
+
 	if len(data) < 2 {
-		return ErrMsgMap[ErrResWrgMsg], ErrResWrgMsg, false
+		return ErrMsgMap[ErrResWrgMsg] + " : {" + msgStr + "}", ErrResWrgMsg, false
 	}
 	if data[1] == "f" {
 		format = true
 		argStart++
 	}
 	if format && len(data) < 3 {
-		return ErrMsgMap[ErrResWrgMsg], ErrResWrgMsg, false
+		return ErrMsgMap[ErrResWrgMsg] + " : {" + msgStr + "}", ErrResWrgMsg, false
 	}
 	//匹配命令类型
 	switch data[0] {
@@ -211,7 +224,7 @@ func msgProcess(msg []byte) (interface{}, int, bool) {
 		msg, errcode := sendStat(data[argStart:]...)
 		return msg, errcode, format
 	}
-	return ErrMsgMap[ErrResUdfCtl], ErrResUdfCtl, false
+	return ErrMsgMap[ErrResUdfCtl] + " : {" + data[0] + "}", ErrResUdfCtl, false
 }
 
 //状态查询方法
@@ -228,6 +241,8 @@ func sendStat(s ...string) (interface{}, int) {
 		msg = getCmdList()
 	case statArgsMap[2]:
 		msg = getRunningStatus()
+	case statArgsMap[3]:
+		msg = getProcessConfig()
 	}
 
 	if msg != nil {
@@ -258,7 +273,7 @@ func sendSignal(s string) (msg string, errcode int) {
 		signalChan <- sig
 
 	} else {
-		msg = ErrMsgMap[ErrResWrgSig] + " : " + s
+		msg = ErrMsgMap[ErrResWrgSig] + " : {" + s + "}"
 		errcode = ErrResWrgSig
 		log.Println(msg)
 	}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -246,4 +247,30 @@ func delPidFile() error {
 		return err
 	}
 	return nil
+}
+
+type ProcessConfig struct {
+	ConfigPath string `json:"conf_path"`
+	TcpAddr    string `json:"tcp_addr"`
+	PidFile    string `json:"pid_file"`
+	SockFile   string `json:"sock_file"`
+	ChdFile    string `json:"child_pids"`
+	LogFile    string `json:"log_file"`
+}
+
+//获取主进程配置
+func getProcessConfig() interface{} {
+	pconf := ProcessConfig{
+		ConfigPath: configRaw.Path(),
+		TcpAddr:    configPort,
+		PidFile:    pidPath,
+		ChdFile:    cPidPath,
+		LogFile:    logPath,
+	}
+	switch runtime.GOOS {
+	case "windows":
+	case "darwin", "linux":
+		pconf.SockFile = sockPath
+	}
+	return pconf
 }
