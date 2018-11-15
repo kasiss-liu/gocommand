@@ -38,6 +38,7 @@ func Run() {
 	//进程结束时 删除主进程和子进程的pid文件
 	defer func() {
 		delPidFile()
+		delPidDescFile()
 		delChildPidsFile()
 	}()
 	if err != nil {

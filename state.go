@@ -193,6 +193,24 @@ func savePid() error {
 		log.Println("pid save pid save file error : " + err.Error())
 		return err
 	}
+
+	descFile, err := os.OpenFile(pidDescPath, os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0666)
+	if err != nil {
+		log.Println("pid desc save open file error : " + err.Error())
+		return err
+	}
+	defer file.Close()
+	pconf := getProcessConfig()
+	data, err := json.Marshal(pconf)
+	if err != nil {
+		log.Println("pid desc save pid compact data error : " + err.Error())
+		return err
+	}
+	_, err = io.WriteString(descFile, string(data))
+	if err != nil {
+		log.Println("pid desc save pid save file error : " + err.Error())
+		return err
+	}
 	return nil
 }
 
@@ -249,10 +267,26 @@ func delPidFile() error {
 	return nil
 }
 
+//删除进程描述文件
+func delPidDescFile() error {
+	var err error
+	_, err = os.Stat(pidDescPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	err = os.Remove(pidDescPath)
+	if err != nil {
+		log.Println("pid remove pid desc file error : " + err.Error())
+		return err
+	}
+	return nil
+}
+
 type ProcessConfig struct {
 	ConfigPath string `json:"conf_path"`
 	TcpAddr    string `json:"tcp_addr"`
 	PidFile    string `json:"pid_file"`
+	pidDesc    string `json:"pid_desc"`
 	SockFile   string `json:"sock_file"`
 	ChdFile    string `json:"child_pids"`
 	LogFile    string `json:"log_file"`
@@ -266,6 +300,7 @@ func getProcessConfig() interface{} {
 		PidFile:    pidPath,
 		ChdFile:    cPidPath,
 		LogFile:    logPath,
+		pidDesc:    pidDescPath,
 	}
 	switch runtime.GOOS {
 	case "windows":

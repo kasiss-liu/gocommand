@@ -9,9 +9,9 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -38,6 +38,7 @@ var (
 	logPath        string
 	pidPath        string
 	cPidPath       string
+	pidDescPath    string
 	DefaultLogPath string
 	workDir        string
 	sysDirSep      string
@@ -52,18 +53,21 @@ func init() {
 	case "windows":
 		sockPath = os.Getenv("TEMP") + "\\taskeeper.sock"
 		pidPath = os.Getenv("TEMP") + "\\taskeeper.pid"
-		cPidPath = os.Getenv("TEMP") + "\\taskeeper_childs.pid"
+		cPidPath = os.Getenv("TEMP") + "\\taskeeper.childs.pid"
+		pidDescPath = os.Getenv("TEMP") + "\\taskeeper.pid.desc"
 		DefaultLogPath = os.Getenv("TEMP") + "\\taskeeper.log"
 	case "darwin", "linux":
 		_, err := os.Stat(UnixSysRunDir)
 		if os.IsNotExist(err) || os.IsPermission(err) {
 			sockPath = UnixSysRunDir + "taskeeper.sock"
 			pidPath = UnixSysRunDir + "taskeeper.pid"
-			cPidPath = UnixSysRunDir + "taskeeper_childs.pid"
+			cPidPath = UnixSysRunDir + "taskeeper.childs.pid"
+			pidDescPath = UnixSysRunDir + "taskeeper.pid.desc"
 		} else {
 			sockPath = UnixSysTmpDir + "taskeeper.sock"
 			pidPath = UnixSysTmpDir + "taskeeper.pid"
-			cPidPath = UnixSysTmpDir + "taskeeper_childs.pid"
+			cPidPath = UnixSysTmpDir + "taskeeper.childs.pid"
+			pidDescPath = UnixSysTmpDir + "taskeeper.pid.desc"
 		}
 		DefaultLogPath = "/tmp/taskeeper.log"
 	}
@@ -76,10 +80,9 @@ func init() {
 func Start(configPath string, deamon, forceLog bool) {
 
 	log.SetOutput(output)
-
-	if workDir == "" {
-		workDir = GetParentDir(os.Args[0])
-	}
+	//	if workDir == "" {
+	//		SetWorkDir(GetParentDir(os.Args[0]),false)
+	//	}
 	//检查配置文件是否存在
 	err := checkConfig(configPath)
 	if err != nil {
@@ -128,6 +131,7 @@ func Start(configPath string, deamon, forceLog bool) {
 	}
 	//如果配置文件有误 进程不能启动
 	if err != nil {
+		log.Println("check workdir : " + workDir)
 		log.Fatalln("config file error : " + err.Error())
 	}
 	//开启监听服务 接收管理客户端命令
@@ -207,6 +211,11 @@ func readConfig(filename string) error {
 	//加载允许访问的host
 	if !configRaw.Get("host").IsNil() {
 		configHost, _ = configRaw.Get("host").String()
+	}
+	//加载工作目录
+	if !configRaw.Get("workdir").IsNil() {
+		wdir, _ := configRaw.Get("workdir").String()
+		SetWorkDir(wdir)
 	}
 	//加载启用的端口
 	if !configRaw.Get("port").IsNil() {
@@ -289,17 +298,6 @@ func getAbsPath(p string) string {
 //会产生同一随机数的问题
 var randSeed int64 = 0
 
-//获取随机字符串
-func getChar() string {
-	switch rand.Intn(3) {
-	case 0:
-		return string(65 + rand.Intn(90-65))
-	case 1:
-		return string(97 + rand.Intn(122-97))
-	default:
-		return strconv.Itoa(rand.Intn(9))
-	}
-}
 func createID() string {
 	for {
 		rand.Seed(time.Now().UTC().UnixNano() + randSeed)
@@ -318,18 +316,19 @@ func createID() string {
 	}
 }
 
-//获取父级目录地址
-func GetParentDir(p string) string {
-	p = strings.Replace(p, "\\", sysDirSep, -1)
-	p = strings.Replace(p, "/", sysDirSep, -1)
-	parr := strings.Split(p, sysDirSep)
-	return strings.Join(parr[:len(parr)-1], sysDirSep)
-}
-
 //外部设置工作目录
+//如果是绝对路径 直接赋值
+//如果是相对路径 则按照当前目录为起始获取绝对路径
 func SetWorkDir(dir string) bool {
-	if path.IsAbs(dir) {
+	if dir == "" {
+		return false
+	}
+	if filepath.IsAbs(dir) {
 		workDir = dir
+		return true
+	}
+	if abs, err := filepath.Abs(dir); err == nil {
+		workDir = abs
 		return true
 	}
 	return false

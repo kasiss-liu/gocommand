@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"log"
+	"os"
 
 	"github.com/kasiss-liu/taskeeper"
 )
@@ -19,6 +21,16 @@ func main() {
 
 	//解析命令行参数
 	flag.Parse()
-	res := taskeeper.SetWorkDir(*workdir)
+	var setdir string
+	if *workdir != "" {
+		setdir = *workdir
+	} else {
+		setdir, _ = os.Getwd()
+	}
+	res := taskeeper.SetWorkDir(setdir)
+	if !res && *workdir != "" {
+		log.Println("workdir did not change")
+	}
+
 	taskeeper.Start(*config, *deamon, *forceLog)
 }

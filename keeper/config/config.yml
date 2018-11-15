@@ -1,18 +1,19 @@
 log: ""
 port: ""
+workdir: ""
 broken_gap: 10
 cmds:
  - 
-  cmd: test/test.exe
+  cmd: test/test_darwin
   args: 
    - ak
    - av
   output: test/test.log 
  - 
-  cmd: "test/test"
+  cmd: "/test/test"
   args: 
    - "ak"
    - "av"
-  output: "test/test.log"
+  output: "/test/test.log"
   cron: "* * * * *"
    

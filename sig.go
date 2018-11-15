@@ -1,7 +1,6 @@
 package taskeeper
 
 import (
-	"bufio"
 	"io"
 	"log"
 	"net"
@@ -78,7 +77,7 @@ func startListenService() {
 	//macos和linux 启动unix通信
 	case "darwin", "linux":
 		tcpListen()
-		unixListen()
+		//		unixListen()
 	}
 }
 
@@ -102,35 +101,33 @@ func tcpListen() {
 				if _, ok := err.(*net.OpError); ok {
 					break
 				}
-
 				log.Printf("unix listen accept error : %s\n", err.Error())
 				continue
 			}
 
-			go listenTCPHandle(c)
+			go listenHandle(c)
 		}
 	}()
 	log.Println("tcp listen service started at " + configPort)
 }
 
-//处理unix链接
-func listenTCPHandle(c *net.TCPConn) {
-	reader := bufio.NewReader(c)
-	defer c.Close()
+//处理消息
+func listenHandle(c net.Conn) {
 	for {
-		line, _, err := reader.ReadLine()
+		var buf = make([]byte, 1024)
+		n, err := c.Read(buf)
 		if err != nil {
-			if err == io.EOF {
-				log.Println("tcp client quit:" + err.Error())
-			} else {
+			if err != io.EOF {
 				log.Println("tcp client error:" + err.Error())
 			}
+			c.Close()
 			break
 		}
-		msg, errcode, format := msgProcess(line)
+		msg, errcode, format := msgProcess(buf[:n])
 		bytes := getResponseBytes(errcode, msg, format)
-		c.Write(bytes)
+		c.Write(append(bytes, '\n'))
 	}
+
 }
 
 //启动unix通信
@@ -154,30 +151,10 @@ func unixListen() {
 				continue
 			}
 
-			go listenUnixHandle(c)
+			go listenHandle(c)
 		}
 	}()
 	log.Println("unix listen service started")
-}
-
-//处理unix链接
-func listenUnixHandle(c *net.UnixConn) {
-	reader := bufio.NewReader(c)
-	defer c.Close()
-	for {
-		line, _, err := reader.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				log.Println("unix client quit:" + err.Error())
-			} else {
-				log.Println("unix client error:" + err.Error())
-			}
-			break
-		}
-		msg, errcode, format := msgProcess(line)
-		bytes := getResponseBytes(errcode, msg, format)
-		c.Write(bytes)
-	}
 }
 
 //处理客户端消息内容
@@ -260,7 +237,7 @@ func getResponseBytes(errcode int, msgData interface{}, format bool) []byte {
 		fmtStr = "pretty|\n"
 	}
 	msg, _ = prettyJson(msgData, format)
-	return []byte(strconv.Itoa(errcode) + "|format:" + fmtStr + msg + "\n")
+	return []byte(strconv.Itoa(errcode) + "|format:" + fmtStr + msg)
 }
 
 //控制发送信号方法
@@ -285,8 +262,10 @@ func stopListenSerivce() {
 	switch runtime.GOOS {
 	case "windows":
 	case "darwin", "linux":
-		unixServer.Close()
-		log.Println("unix listen service stopped")
+		if unixServer != nil {
+			unixServer.Close()
+			log.Println("unix listen service stopped")
+		}
 	}
 }
 
