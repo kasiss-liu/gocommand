@@ -68,12 +68,13 @@ func delChildPidsFile() error {
 
 //服务状态
 type RunningStatus struct {
-	StartTime      int64    `json:"start_time"`
-	ReloadTime     []int64  `json:"reload_time_list"`
+	Pid            int      `json:"main_pid"`
+	StartTime      string   `json:"start_time"`
+	ReloadTime     []string `json:"reload_time_list"`
 	TotalTasks     int      `json:"task_total_num"`
 	RunningTasks   []string `json:"running_task_list"`
 	TermTasks      []string `json:"term_task_list"`
-	RunningSeconds int64    `json:"running_seconds"`
+	RunningSeconds string   `json:"running_seconds"`
 }
 
 //获取监控服务的运行状态
@@ -88,14 +89,19 @@ func getRunningStatus() interface{} {
 	for tid, _ := range StateCopy.BrokenList {
 		termList = append(termList, tid)
 	}
-
+	stString := formatDate(StartTime)
+	reloadTimeString := make([]string, 0, 10)
+	for _, tm := range ReloadTime {
+		reloadTimeString = append(reloadTimeString, formatDate(tm))
+	}
 	return RunningStatus{
-		StartTime:      StartTime,
-		ReloadTime:     ReloadTime,
+		Pid:            MainPid,
+		StartTime:      stString,
+		ReloadTime:     reloadTimeString,
 		TotalTasks:     RunState.TasksNum,
 		RunningTasks:   runList,
 		TermTasks:      termList,
-		RunningSeconds: runSec,
+		RunningSeconds: formatSeconds(runSec),
 	}
 }
 
@@ -106,6 +112,7 @@ type CmdStatus struct {
 	Output     string `json:"output"`
 	BkTimes    int    `json:"brokens"`
 	LastBkTime string `json:"last_broken_time"`
+	IsCron     bool   `json:"is_cron"`
 }
 
 //按照id 获取单个cmd的运行状态
@@ -135,6 +142,7 @@ func getCmd(id string) interface{} {
 				BkTimes:    bktimes,
 				LastBkTime: bk,
 				Cmd:        cmdStr,
+				IsCron:     cmdCopy.IsCron(),
 			}
 		}
 	}
@@ -181,7 +189,7 @@ func prettyJson(jsonData interface{}, format bool) (string, error) {
 
 //保存主进程id
 func savePid() error {
-	pid := os.Getpid()
+	pid := MainPid
 	file, err := os.OpenFile(pidPath, os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0666)
 	if err != nil {
 		log.Println("pid save open file error : " + err.Error())
@@ -199,7 +207,7 @@ func savePid() error {
 		log.Println("pid desc save open file error : " + err.Error())
 		return err
 	}
-	defer file.Close()
+	defer descFile.Close()
 	pconf := getProcessConfig()
 	data, err := json.Marshal(pconf)
 	if err != nil {

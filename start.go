@@ -42,6 +42,7 @@ var (
 	DefaultLogPath string
 	workDir        string
 	sysDirSep      string
+	MainPid        int
 )
 
 //初始化命令map
@@ -74,6 +75,7 @@ func init() {
 	configHost = DefaultHost
 	configPort = configHost + ":" + DefaultPort
 	sysDirSep = string(os.PathSeparator)
+	MainPid = os.Getpid()
 
 }
 
@@ -300,7 +302,7 @@ var randSeed int64 = 0
 
 func createID() string {
 	for {
-		rand.Seed(time.Now().UTC().UnixNano() + randSeed)
+		rand.Seed(time.Now().UTC().Unix() + randSeed)
 		var result bytes.Buffer
 		var temp string
 		for i := 0; i < 10; {

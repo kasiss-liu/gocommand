@@ -37,13 +37,13 @@ var ErrMsgMap = []string{
 }
 
 const (
-	msgSigCtl  = "ctl"
-	msgSigStat = "stat"
+	MsgSigCtl  = "ctl"
+	MsgSigStat = "stat"
 )
 
 var (
-	sigMap         map[string]int
-	statArgsMap    []string
+	SigMap         map[string]int
+	StatArgsMap    []string
 	serviceDonw    chan bool
 	unixServer     *net.UnixListener
 	tcpServer      *net.TCPListener
@@ -56,12 +56,12 @@ func init() {
 	signalChan = make(chan int)
 	sysSigChan = make(chan os.Signal)
 	serviceDonw = make(chan bool)
-	sigMap = map[string]int{
+	SigMap = map[string]int{
 		"break":  sigBroken,
 		"reload": sigReload,
 		"exit":   sigExit,
 	}
-	statArgsMap = []string{
+	StatArgsMap = []string{
 		"cmd",
 		"cmdlist",
 		"server",
@@ -125,7 +125,7 @@ func listenHandle(c net.Conn) {
 		}
 		msg, errcode, format := msgProcess(buf[:n])
 		bytes := getResponseBytes(errcode, msg, format)
-		c.Write(append(bytes, '\n'))
+		c.Write(bytes)
 	}
 
 }
@@ -194,10 +194,10 @@ func msgProcess(msg []byte) (interface{}, int, bool) {
 	}
 	//匹配命令类型
 	switch data[0] {
-	case msgSigCtl:
+	case MsgSigCtl:
 		msg, errcode := sendSignal(data[argStart])
 		return msg, errcode, format
-	case msgSigStat:
+	case MsgSigStat:
 		msg, errcode := sendStat(data[argStart:]...)
 		return msg, errcode, format
 	}
@@ -208,17 +208,17 @@ func msgProcess(msg []byte) (interface{}, int, bool) {
 func sendStat(s ...string) (interface{}, int) {
 	var msg interface{}
 	switch s[0] {
-	case statArgsMap[0]:
+	case StatArgsMap[0]:
 		if len(s) < 2 {
 			msg = ErrMsgMap[ErrResMissCmd]
 			return msg, ErrResMissCmd
 		}
 		msg = getCmd(s[1])
-	case statArgsMap[1]:
+	case StatArgsMap[1]:
 		msg = getCmdList()
-	case statArgsMap[2]:
+	case StatArgsMap[2]:
 		msg = getRunningStatus()
-	case statArgsMap[3]:
+	case StatArgsMap[3]:
 		msg = getProcessConfig()
 	}
 
@@ -244,7 +244,7 @@ func getResponseBytes(errcode int, msgData interface{}, format bool) []byte {
 func sendSignal(s string) (msg string, errcode int) {
 
 	//向通道内发送信号
-	if sig, ok := sigMap[s]; ok {
+	if sig, ok := SigMap[s]; ok {
 		errcode = 0
 		msg = "ok"
 		signalChan <- sig
