@@ -30,7 +30,7 @@ func syncStateToCopy() {
 	go func() {
 		for {
 			StateCopy = copyState()
-			time.Sleep(100 * time.Microsecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 	//每秒保存子进程的pid列表 写入文件
@@ -40,7 +40,7 @@ func syncStateToCopy() {
 			file, err := os.OpenFile(cPidPath, os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0666)
 			if err != nil {
 				log.Println("sync child pids error : " + err.Error())
-				break
+				return
 			}
 			var pids = make([]string, 0, 5)
 			for _, cmd := range StateCopy.RunningList {
@@ -49,6 +49,7 @@ func syncStateToCopy() {
 			file.WriteString(strings.Join(pids, "|"))
 			file.Close()
 		}
+
 	}()
 }
 
