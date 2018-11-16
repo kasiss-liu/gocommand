@@ -71,13 +71,13 @@ func delChildPidsFile() error {
 
 //服务状态
 type RunningStatus struct {
-	Pid            int      `json:"main_pid"`
-	StartTime      string   `json:"start_time"`
-	ReloadTime     []string `json:"reload_time_list"`
-	TotalTasks     int      `json:"task_total_num"`
-	RunningTasks   []string `json:"running_task_list"`
-	TermTasks      []string `json:"term_task_list"`
-	RunningSeconds string   `json:"running_seconds"`
+	Pid            int      `json:"main_pid"`          //主程序pid
+	StartTime      string   `json:"start_time"`        //主程序启动时间
+	ReloadTime     []string `json:"reload_time_list"`  //主程序重载配置时间列表
+	TotalTasks     int      `json:"task_total_num"`    //可以启动的子程序总数
+	RunningTasks   []string `json:"running_task_list"` //正在运行的子程序命令集合
+	TermTasks      []string `json:"term_task_list"`    //中断的子程序命令集合
+	RunningSeconds string   `json:"running_seconds"`   //程序运行时间
 }
 
 //获取监控服务的运行状态
@@ -294,14 +294,15 @@ func delPidDescFile() error {
 	return nil
 }
 
+//主程序配置结构
 type ProcessConfig struct {
-	ConfigPath string `json:"conf_path"`
-	TcpAddr    string `json:"tcp_addr"`
-	PidFile    string `json:"pid_file"`
-	pidDesc    string `json:"pid_desc"`
-	SockFile   string `json:"sock_file"`
-	ChdFile    string `json:"child_pids"`
-	LogFile    string `json:"log_file"`
+	ConfigPath string `json:"conf_path"`  //启动时使用的配置文件
+	TcpAddr    string `json:"tcp_addr"`   //Tcp启动地址
+	PidFile    string `json:"pid_file"`   //Pid文件地址
+	pidDesc    string `json:"pid_desc"`   //Pid描述文件
+	SockFile   string `json:"sock_file"`  //sock文件存储路径
+	ChdFile    string `json:"child_pids"` //子进程pid统一存储路径
+	LogFile    string `json:"log_file"`   //主程序日志打印位置
 }
 
 //获取主进程配置
