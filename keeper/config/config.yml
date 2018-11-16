@@ -1,11 +1,12 @@
 log: ""
+host: ""
 port: ""
 workdir: ""
 broken_gap: 10
 cmds:
  - 
   cmd: test/test
-  output: test/test.log 
+  output: ""
  - 
   cmd: "/test/test"
   args: 
@@ -13,4 +14,3 @@ cmds:
    - "av"
   output: "/test/test.log"
   cron: "* * * * *"
-   
