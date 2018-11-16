@@ -11,13 +11,14 @@ import (
 )
 
 func main() {
+	//接收输入
 	s := flag.String("s", "", `ctl signal 'stop' , 'reload'`)
 	h := flag.String("h", "", "service hostname : "+tk.DefaultHost)
 	p := flag.String("p", "", "service port : "+tk.DefaultPort)
 	cat := flag.String("cat", "", "cat cmd status")
 
 	flag.Parse()
-
+	//验证主机端口 可以配置远程tcp连接
 	if *h != "" && *p == "" {
 		fmt.Println("hostname is input, need port string")
 		return
@@ -33,11 +34,12 @@ func main() {
 		}
 		addr = ps.TcpAddr
 	}
-
+	//解析请求字符串
 	requestString := getRequestData(*s, *cat)
 	if requestString == "" {
 		return
 	}
+	//如果解析成功 发起tcp请求
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		fmt.Println("connect error : " + err.Error())
@@ -54,12 +56,14 @@ func main() {
 		fmt.Println(err.Error())
 		return
 	}
+	//打印请求结果
 	data := string(buf[:n])
 	dataArr := strings.Split(data, "|")
 	fmt.Println(dataArr[len(dataArr)-1])
 
 }
 
+//解析输入 返回请求的格式化数据
 func getRequestData(signal, cat string) string {
 	if signal != "" {
 		if _, ok := tk.SigMap[signal]; ok {
@@ -85,6 +89,7 @@ func getRequestData(signal, cat string) string {
 	return ""
 }
 
+//查询cmd的id
 func getCmdId() string {
 	for k, v := range os.Args {
 		if v == tk.StatArgsMap[0] {

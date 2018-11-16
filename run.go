@@ -9,15 +9,15 @@ import (
 
 //状态机
 type State struct {
-	TasksNum   int
-	RunningNum int
-	BrokenNum  int
+	TasksNum   int //程序总的运行数量
+	RunningNum int //正在运行的命令数
+	BrokenNum  int //由于崩溃或结束运行的命令数
 
-	RunningList  map[string]*Command
-	BrokenList   map[string]*Command
-	BrokenTries  map[string]int
-	BrokenPoints map[string]int64
-	Numlock      sync.Mutex
+	RunningList  map[string]*Command //正在运行的命令map
+	BrokenList   map[string]*Command //运行中断的命令map
+	BrokenTries  map[string]int      //命令中断后在容忍间隔时间内的重试次数
+	BrokenPoints map[string]int64    //命令中断的时间点
+	Numlock      sync.Mutex          //操作各数量变更的锁
 }
 
 //运行时的必要参数
@@ -28,10 +28,12 @@ var (
 )
 
 func init() {
-	breakGap = DefaultBrokenGap
-	RunState = &State{}
+	breakGap = DefaultBrokenGap //初始化容忍间隔
+	RunState = &State{}         //初始化一个状态机
 }
 
+//程序启动
+//子程序 启动、监控并等待操作信号
 func Run() {
 
 	err := savePid()

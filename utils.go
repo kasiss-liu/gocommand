@@ -37,18 +37,22 @@ func getChar() string {
 	}
 }
 
+//获取主程序pid文件的储存路径
 func GetPidFile() string {
 	return pidPath
 }
 
+//获取主程序控制的子程序pid文件储存路径
 func GetChildPidsFile() string {
 	return cPidPath
 }
 
+//获取tcp启动地址
 func GetTcpAddr() string {
 	return configPort
 }
 
+//获取主进程的描述信息
 func ParsePidDesc() (ProcessConfig, error) {
 	p := ProcessConfig{}
 	_, err := os.Stat(pidDescPath)
@@ -66,6 +70,8 @@ func ParsePidDesc() (ProcessConfig, error) {
 	return p, nil
 }
 
+//格式化秒数
+//0 d 1 h 30 m 15 s
 func formatSeconds(s int64) string {
 	buf := make([]string, 0, 10)
 
@@ -89,6 +95,8 @@ func formatSeconds(s int64) string {
 	return strings.Join(buf, " ")
 }
 
+//格式化日期
+//2018-11-16 16:32:33
 func formatDate(s int64) string {
 	return time.Unix(s, 0).Format("2006-01-02 15:04:05")
 }

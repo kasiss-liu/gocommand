@@ -20,10 +20,12 @@ var (
 	fmtPrefix  = ""
 )
 
+//获取一个主程序运行状态的copy
 func copyState() State {
 	return *RunState
 }
 
+//同步主程序的运行状态
 func syncStateToCopy() {
 	//每100毫秒同步一次运行状态 用于对客户端输出监控数据
 	//需要协程启动
@@ -106,14 +108,15 @@ func getRunningStatus() interface{} {
 	}
 }
 
+//单个子程序的运行状态信息
 type CmdStatus struct {
-	ID         string `json:"id"`
-	Pid        int    `json:"pid"`
-	Cmd        string `json:"cmd"`
-	Output     string `json:"output"`
-	BkTimes    int    `json:"brokens"`
-	LastBkTime string `json:"last_broken_time"`
-	IsCron     bool   `json:"is_cron"`
+	ID         string `json:"id"`               //命令id
+	Pid        int    `json:"pid"`              //命令pid
+	Cmd        string `json:"cmd"`              //命令的启动参数
+	Output     string `json:"output"`           //命令输出的打印位置
+	BkTimes    int    `json:"brokens"`          //中断次数
+	LastBkTime string `json:"last_broken_time"` //上一次中断的时间
+	IsCron     bool   `json:"is_cron"`          //是否是cron
 }
 
 //按照id 获取单个cmd的运行状态

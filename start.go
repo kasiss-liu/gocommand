@@ -19,30 +19,30 @@ import (
 )
 
 const (
-	DefaultBrokenGap int64 = 5 //second
-	DefaultHost            = "127.0.0.1"
-	DefaultPort            = "17101"
-	UnixSysRunDir          = "/var/run/"
-	UnixSysTmpDir          = "/tmp/"
+	DefaultBrokenGap int64 = 5           //默认的中断容忍间隔
+	DefaultHost            = "127.0.0.1" //默认的tcp 主机地址
+	DefaultPort            = "17101"     //默认的tcp 端口
+	UnixSysRunDir          = "/var/run/" //uinx系的运行目录
+	UnixSysTmpDir          = "/tmp/"     //unix系的临时目录
 )
 
 var (
-	configName     = "taskeeper"
-	configHost     string
-	configPort     string
-	configRaw      *loadConfig.Config
-	output         = os.Stdout
-	cmds           map[string]*Command
-	customGap      int64
-	sockPath       string
-	logPath        string
-	pidPath        string
-	cPidPath       string
-	pidDescPath    string
-	DefaultLogPath string
-	workDir        string
-	sysDirSep      string
-	MainPid        int
+	configName     = "taskeeper"       //默认名称
+	configHost     string              //tcp主机地址
+	configPort     string              //tcp 启动端口 例如 127.0.0.1:17101
+	configRaw      *loadConfig.Config  //启动时载入的config文件结构
+	output         = os.Stdout         //主程序输出打印位置
+	cmds           map[string]*Command //存储config中配置的命令列表
+	customGap      int64               //自定义的容忍间隔
+	sockPath       string              //.sock文件目录
+	logPath        string              //主程序打印位置
+	pidPath        string              //pid文件存储位置
+	cPidPath       string              //主程序启动的子程序pid存储位置
+	pidDescPath    string              //主程序启动的描述文件
+	DefaultLogPath string              //默认主程序日志打印位置
+	workDir        string              //主程序工作目录
+	sysDirSep      string              //系统目录分隔符
+	MainPid        int                 //主程序pid
 )
 
 //初始化命令map

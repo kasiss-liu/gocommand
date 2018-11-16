@@ -8,14 +8,14 @@ import (
 //Command 执行命令的配置结构
 //重新封装了cmd
 type Command struct {
-	id          string
-	pid         int
-	cmd         string
-	args        []string
-	output      string
-	isCron      bool
-	cronExpress string
-	process     *os.Process
+	id          string      //为每个命令随机分配一个字符串id
+	pid         int         //命令如果运行 会将运行时的pid保存
+	cmd         string      //命令的位置
+	args        []string    //命令启动时的参数
+	output      string      //命令执行时打印输出位置
+	isCron      bool        //是否时定时任务
+	cronExpress string      //定时任务表达式
+	process     *os.Process //具体进程指针
 }
 
 //设置命令为cron命令
@@ -54,10 +54,13 @@ func (c *Command) Start() int {
 	log.Println(c.cmd + " start failed : " + err.Error())
 	return 0
 }
+
+//获取命令字符串Id 创建时随机分配
 func (c *Command) ID() string {
 	return c.id
 }
 
+//手动设置一个id
 func (c *Command) SetId(id string) {
 	c.id = id
 }

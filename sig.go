@@ -18,15 +18,17 @@ const (
 	sigStart  = 2  //启动协程
 )
 
+//定义一些常量 错误编号
 const (
-	ErrResCodeNo = iota
-	ErrResWrgMsg
-	ErrResUdfCtl
-	ErrResMissCmd
-	ErrResStatNil
-	ErrResWrgSig
+	ErrResCodeNo  = iota //无错误 0
+	ErrResWrgMsg         //消息结构不正确 1
+	ErrResUdfCtl         //未定义的操作命令 2
+	ErrResMissCmd        //缺少命令ID 3
+	ErrResStatNil        //未获取到合法的参数 4
+	ErrResWrgSig         //未定义的信号 5
 )
 
+//错误编号对应的消息数组
 var ErrMsgMap = []string{
 	"success",
 	"wrong message",
@@ -36,20 +38,21 @@ var ErrMsgMap = []string{
 	"undefined signal",
 }
 
+//客户端操作命令常量
 const (
-	MsgSigCtl  = "ctl"
-	MsgSigStat = "stat"
+	MsgSigCtl  = "ctl"  //控制
+	MsgSigStat = "stat" //查询
 )
 
 var (
-	SigMap         map[string]int
-	StatArgsMap    []string
-	serviceDonw    chan bool
-	unixServer     *net.UnixListener
-	tcpServer      *net.TCPListener
-	signalChan     chan int
-	sysSigChan     chan os.Signal
-	msgProcessLock sync.Mutex
+	SigMap         map[string]int    //信号map
+	StatArgsMap    []string          //信号参数map
+	serviceDonw    chan bool         //结束服务通道
+	unixServer     *net.UnixListener //unix下的服务 .sock启动 暂未启用
+	tcpServer      *net.TCPListener  //所有环境下启动tcp服务
+	signalChan     chan int          //信号通道
+	sysSigChan     chan os.Signal    //监听系统命令 ctl+c kill 等
+	msgProcessLock sync.Mutex        //消息处理锁
 )
 
 func init() {
@@ -69,6 +72,8 @@ func init() {
 	}
 }
 
+//启动监听服务
+//接收客户端的消息
 func startListenService() {
 	//windows下暂时不做处理
 	switch runtime.GOOS {
