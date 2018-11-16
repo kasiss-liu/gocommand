@@ -41,7 +41,6 @@ func TestStart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-
 	n, err := conn.Write([]byte(`stat f server\n`))
 	if err != nil {
 		t.Log(err.Error())

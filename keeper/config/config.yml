@@ -4,10 +4,7 @@ workdir: ""
 broken_gap: 10
 cmds:
  - 
-  cmd: test/test.exe
-  args: 
-   - ak
-   - av
+  cmd: test/test
   output: test/test.log 
  - 
   cmd: "/test/test"

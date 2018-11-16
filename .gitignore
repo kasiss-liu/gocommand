@@ -1,6 +1,5 @@
 keeper/keeper
+keeper/test/.*
 keeper/keeper.exe
-*.log
-cover.out
-keeper/test/*.log
-taskeeper.exe
+keeperctl/keeperctl.exe
+keeperctl/keeperctl

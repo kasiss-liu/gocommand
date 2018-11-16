@@ -16,7 +16,7 @@ func TestCmd(t *testing.T) {
 	case "linux":
 		cmdstr = "keeper/test/test_linux"
 	}
-	cmd := NewCommand(cmdstr, []string{" hello ", " world "}, "test/cmd.test.log")
+	cmd := NewCommand(cmdstr, []string{" hello ", " world "}, "keeper/test/cmd.test.log")
 
 	output := cmd.Output()
 	t.Logf("output : %s\n", output)
