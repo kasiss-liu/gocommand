@@ -22,14 +22,14 @@ $ go install github.com/kasiss-liu/taskeeper/keeperctl
 cat github.com/kasiss-liu/taskeeper/config/config.yml
 ```
 ```
-# 主程序日志打印位置 不需要保存日志可以配置为 `/dev/null`
-log: ""           //如果配置项为空输出会打印到 stdout
+# 主程序日志打印位置 不需要保存日志可以配置为 `/dev/null`
+log: ""           //如果配置项为空输出会打印到 stdout
 
 # 服务启动时会开启一个tcp服务，接收管理客户端信号
 host: ""          //默认主机 127.0.0.1 如果配置为空 将允许远程控制 否则需要删除host行
 port: ""          //默认端口 17101
 
-# 配置工作目录，如果程序运行时遇到相对路径，会以此项作为前缀补充为绝对路径  
+# 配置工作目录，如果程序运行时遇到相对路径，会以此项作为前缀补充为绝对路径 
 workdir: ""
 
 # 常驻进程异常中断重试次数 
@@ -46,7 +46,7 @@ cmds:
    - "arg1"
    - "arg2"
   //该命令的输出打印位置 如果为空，将打印到主程序的输出位置  
-  //如果为相对路径则会进行补充
+  //如果为相对路径则会进行补充
   output: "test/test.log" 
  - 
   cmd: "/test/test"
@@ -58,7 +58,7 @@ cmds:
 ##### 启动
 
 ```
-keeper -c config.yml -d
+keeper -c config.yml -d
 ```
 
 #### 启动参数
@@ -94,7 +94,7 @@ Usage of keeperctl:
 ```
 
 ```
-# 查看所有配置命令
+# 查看所有配置命令
 keeperctl -cat cmdlist
 # 查看单个命令运行状态 {cmdid前缀匹配}
 keeperctl -cat cmd {cmdId} 
