@@ -5,6 +5,8 @@ import (
 	"log"
 	"sync"
 	"time"
+
+	"github.com/kasiss-liu/go-tools/cron"
 )
 
 //状态机
@@ -18,6 +20,10 @@ type State struct {
 	BrokenTries  map[string]int      //命令中断后在容忍间隔时间内的重试次数
 	BrokenPoints map[string]int64    //命令中断的时间点
 	Numlock      sync.Mutex          //操作各数量变更的锁
+
+	CronState   bool                //是否已经开启cron协程
+	SecCronList map[string]*Command //秒级cron列表
+	MinCronList map[string]*Command //分钟级cron列表
 }
 
 //运行时的必要参数
@@ -28,8 +34,8 @@ var (
 )
 
 func init() {
-	breakGap = DefaultBrokenGap //初始化容忍间隔
-	RunState = &State{}         //初始化一个状态机
+	breakGap = DefaultBrokenGap         //初始化容忍间隔
+	RunState = &State{CronState: false} //初始化一个状态机
 }
 
 //程序启动
@@ -146,7 +152,6 @@ func runDeamonRoutine(id string, c *Command) {
 			if brkTime.Unix()-ts <= breakGap {
 				//如果小于 则本命令的重试次数+1
 				RunState.BrokenTries[id]++
-
 				if RunState.BrokenTries[id] >= brokenTimes {
 					//如果重试次数超限 则该进程存在异常 应该退出
 					RunState.Numlock.Lock()
@@ -166,7 +171,7 @@ func runDeamonRoutine(id string, c *Command) {
 		RunState.BrokenPoints[id] = brkTime.Unix()
 	}
 	//本协程结束时 验证状态机 是否所以协程都已经退出
-	checkAllBroken()
+	//	checkAllBroken()
 }
 
 //执行退出时，停止所有管理的进程
@@ -206,6 +211,9 @@ func initTask() {
 	RunState.BrokenList = make(map[string]*Command)
 	RunState.BrokenTries = make(map[string]int)
 	RunState.BrokenPoints = make(map[string]int64)
+
+	RunState.MinCronList = make(map[string]*Command)
+	RunState.SecCronList = make(map[string]*Command)
 }
 
 //遍历启动所有cmd
@@ -223,6 +231,14 @@ func startTask() error {
 			go runDeamonRoutine(id, cmd)
 			log.Println("run started cmd : " + id)
 		}
+		if cmd.IsCron() {
+			checkCronExpress(cmd)
+			if !RunState.CronState {
+				go runSecondCronRoutine()
+				go runMinuteCronRoutine()
+				RunState.CronState = true
+			}
+		}
 	}
 	//如果首次启动 记录启动时间
 	if StartTime <= 0 {
@@ -232,4 +248,60 @@ func startTask() error {
 		ReloadTime = append(ReloadTime, time.Now().Unix())
 	}
 	return nil
+}
+
+//启动秒级cron运行任务
+func runSecondCronRoutine() {
+	for {
+		for _, cmd := range RunState.SecCronList {
+			if cron.ValidExpressNow(cmd.cronExpress) {
+				go doCronRoutine(cmd)
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
+//启动分钟级cron运行任务
+func runMinuteCronRoutine() {
+	for {
+		for _, cmd := range RunState.MinCronList {
+			if cron.ValidExpressNow(cmd.cronExpress) {
+				log.Println("min cron" + cmd.ID())
+				go doCronRoutine(cmd)
+			}
+		}
+		time.Sleep(60 * time.Second)
+	}
+}
+
+//解析cron
+func checkCronExpress(cmd *Command) {
+	if !cmd.IsCron() {
+		return
+	}
+	c, err := cron.NewCronWithExpress(cmd.cronExpress)
+	if err != nil {
+		log.Println(`cron express error: ` + err.Error())
+		return
+	}
+	if c.IsSec() {
+		RunState.SecCronList[cmd.id] = cmd
+	} else {
+		RunState.MinCronList[cmd.id] = cmd
+	}
+}
+
+//协程启动cron进程
+func doCronRoutine(cmd *Command) {
+	if cmd.Pid() > 0 {
+		return
+	}
+	cmd.Start()
+
+	_, err := cmd.Wait()
+	if err != nil {
+		log.Println("cron cmd id: " + cmd.ID() + " msg:" + err.Error())
+	}
+	cmd.pid = -1
 }

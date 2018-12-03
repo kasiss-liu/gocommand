@@ -78,6 +78,10 @@ type RunningStatus struct {
 	RunningTasks   []string `json:"running_task_list"` //正在运行的子程序命令集合
 	TermTasks      []string `json:"term_task_list"`    //中断的子程序命令集合
 	RunningSeconds string   `json:"running_seconds"`   //程序运行时间
+
+	CronState   bool     `json:"cron_state"`      //是否已经开启cron协程
+	SecCronList []string `json:"second_cron_list` //秒级cron列表
+	MinCronList []string `json:"minute_cron_list` //分钟级cron列表
 }
 
 //获取监控服务的运行状态
@@ -97,6 +101,18 @@ func getRunningStatus() interface{} {
 	for _, tm := range ReloadTime {
 		reloadTimeString = append(reloadTimeString, formatDate(tm))
 	}
+
+	cronState := StateCopy.CronState
+	secCron := make([]string, 0, 5)
+	for sid, _ := range StateCopy.SecCronList {
+		secCron = append(secCron, sid)
+	}
+
+	minCron := make([]string, 0, 5)
+	for mid, _ := range StateCopy.MinCronList {
+		minCron = append(minCron, mid)
+	}
+
 	return RunningStatus{
 		Pid:            MainPid,
 		StartTime:      stString,
@@ -105,6 +121,9 @@ func getRunningStatus() interface{} {
 		RunningTasks:   runList,
 		TermTasks:      termList,
 		RunningSeconds: formatSeconds(runSec),
+		CronState:      cronState,
+		SecCronList:    secCron,
+		MinCronList:    minCron,
 	}
 }
 

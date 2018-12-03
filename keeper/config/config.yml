@@ -7,10 +7,17 @@ cmds:
  - 
   cmd: test/test
   output: ""
+ #- 
+ # cmd: "test/cron_test"
+ # args: 
+ #  - "ak"
+ #  - "av"
+ # output: "test/cron_test.log"
+ # cron: "* * * * * * *"
  - 
-  cmd: "/test/test"
+  cmd: "test/cron_test"
   args: 
-   - "ak"
-   - "av"
-  output: "/test/test.log"
+   - "ak2"
+   - "av2"
+  output: "test/cron.test.log"
   cron: "* * * * *"

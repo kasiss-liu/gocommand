@@ -12,7 +12,7 @@ import (
 
 func main() {
 	//接收输入
-	s := flag.String("s", "", `ctl signal 'stop' , 'reload'`)
+	s := flag.String("s", "", `ctl signal 'exit' , 'reload'`)
 	h := flag.String("h", "", "service hostname : "+tk.DefaultHost)
 	p := flag.String("p", "", "service port : "+tk.DefaultPort)
 	cat := flag.String("cat", "", "cat cmd status")
