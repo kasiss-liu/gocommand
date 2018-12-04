@@ -90,7 +90,7 @@ Usage of keeperctl:
   -p string
     	service port : 17101
   -s string
-    	ctl signal 'stop' , 'reload'
+    	ctl signal 'exit' , 'reload'
 ```
 
 ```
@@ -103,7 +103,7 @@ keeperctl -cat status
 # 重载配置
 keeperctl -s reload 
 # 停止服务
-keeperctl -s stop 
+keeperctl -s exit 
 ```
 
 

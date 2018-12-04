@@ -12,10 +12,9 @@ import (
 )
 
 const (
-	sigBroken = -1 //所有携程已经退出(结束或者崩溃)
-	sigReload = 1  //重新读取配置 并重新启动所有协程
-	sigExit   = 0  //管理进程退出
-	sigStart  = 2  //启动协程
+	sigReload = 1 //重新读取配置 并重新启动所有协程
+	sigExit   = 0 //管理进程退出
+	sigStart  = 2 //启动协程
 )
 
 //定义一些常量 错误编号
@@ -60,7 +59,6 @@ func init() {
 	sysSigChan = make(chan os.Signal)
 	serviceDonw = make(chan bool)
 	SigMap = map[string]int{
-		"break":  sigBroken,
 		"reload": sigReload,
 		"exit":   sigExit,
 	}

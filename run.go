@@ -66,11 +66,6 @@ func Run() {
 	for {
 		sig := <-signalChan
 		switch sig {
-		//接收到所有进程异常信号后 退出主程序
-		case sigBroken:
-			//运行结束打印
-			log.Println("run all process broken !")
-			return
 		//接收到重载信号后更新cmd配置 结束所有进程并按照新配置重新启动进程
 		case sigReload:
 			err := reloadTask()
@@ -96,14 +91,6 @@ func Run() {
 
 	}
 
-}
-
-//验证是否所有协程都已经退出
-//如果是 则向通道写入信号 通知主进程结束
-func checkAllBroken() {
-	if RunState.TasksNum > 0 && RunState.BrokenNum > 0 && RunState.TasksNum <= RunState.BrokenNum {
-		signalChan <- sigBroken
-	}
 }
 
 //运行常驻命令
@@ -170,8 +157,6 @@ func runDeamonRoutine(id string, c *Command) {
 		RunState.BrokenTries[id] = 1
 		RunState.BrokenPoints[id] = brkTime.Unix()
 	}
-	//本协程结束时 验证状态机 是否所以协程都已经退出
-	//	checkAllBroken()
 }
 
 //执行退出时，停止所有管理的进程
@@ -298,7 +283,7 @@ func doCronRoutine(cmd *Command) {
 		return
 	}
 	cmd.Start()
-
+	log.Println("cron cmd id: " + cmd.ID() + " started")
 	_, err := cmd.Wait()
 	if err != nil {
 		log.Println("cron cmd id: " + cmd.ID() + " msg:" + err.Error())
