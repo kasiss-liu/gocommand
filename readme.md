@@ -5,7 +5,7 @@
 
 ##### 功能设计
 - 对常驻类型进程进行保活 
-- 配置定时任务，定时启动脚本 (未完成)
+- 配置定时任务，定时启动脚本
 
 ##### 安装
 ```
@@ -47,12 +47,11 @@ cmds:
    - "arg2"
   //该命令的输出打印位置 如果为空，将打印到主程序的输出位置  
   //如果为相对路径则会进行补充
-  output: "test/test.log" 
+  output: "test/cmd.test.log" 
  - 
-  cmd: "/test/test"
-  output: "/test/test.log"
+  cmd: "test/cron_test"
+  output: "test/cron.test.log"
   //如果该命令是定时任务 需要配置cron表达式
-  //(暂未实现定时任务功能) 如果配置此项 该命令将不会启动 
   cron: "* * * * *"
 ```
 ##### 启动
