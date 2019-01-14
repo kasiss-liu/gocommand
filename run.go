@@ -42,13 +42,14 @@ func init() {
 //子程序 启动、监控并等待操作信号
 func Run() {
 
-	err := savePid()
 	//进程结束时 删除主进程和子进程的pid文件
 	defer func() {
 		delPidFile()
 		delPidDescFile()
 		delChildPidsFile()
 	}()
+
+	err := savePid()
 	if err != nil {
 		log.Println("run process prepare failed !")
 		return

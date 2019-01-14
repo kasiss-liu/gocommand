@@ -101,7 +101,8 @@ func Start(configPath string, deamon, forceLog bool) {
 		//判断当前进程是否为子进程 如果不是子进程 可以启动后台进程
 		//Getppid 获取父进程进程id
 		if os.Getppid() != 1 {
-			cmd := NewCommand(os.Args[0], []string{"-c", configPath, "-flog", "-w", workDir}, "")
+			cmdName := checkCommand(os.Args[0])
+			cmd := NewCommand(cmdName, []string{"-c", configPath, "-flog", "-w", workDir}, "")
 			pid := cmd.Start()
 			if pid > 0 {
 				fmt.Printf("+[%d]\n", cmd.Pid())
@@ -113,6 +114,9 @@ func Start(configPath string, deamon, forceLog bool) {
 	}
 	//读取配置文件内容
 	err = readConfig(configPath)
+	if err != nil {
+		log.Println("read config error :" + err.Error())
+	}
 	//更改打印输出位置
 	if len([]byte(logPath)) > 0 {
 		//设置主输出

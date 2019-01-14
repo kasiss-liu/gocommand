@@ -270,13 +270,24 @@ func checkPidFile() error {
 		log.Println("pid check conv pid error : " + err.Error())
 		return nil
 	}
-	_, err = os.FindProcess(pid)
-	//	process, err := os.FindProcess(pid)
-	//	log.Println(process, err)
-	if err != nil {
-		log.Println("pid check find process : " + err.Error())
-		return nil
+
+	switch runtime.GOOS {
+	case "windows":
+		_, err = os.FindProcess(pid)
+		if err != nil {
+			log.Println("pid check find process : " + err.Error())
+			return nil
+		}
+	case "linux", "darwin":
+		cmd := NewCommand("/bin/sh", []string{"-c", `ps -ef|cut -c 9-15 |grep ` + pidStr}, "/dev/null")
+		cmd.Start()
+		cmd.Wait()
+		out := cmd.Output()
+		if out == "" {
+			return nil
+		}
 	}
+
 	errMsg := "pid check pid file error : process " + pidStr + " alive !"
 	log.Println(errMsg)
 	return errors.New(errMsg)

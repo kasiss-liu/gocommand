@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -99,4 +100,29 @@ func formatSeconds(s int64) string {
 //2018-11-16 16:32:33
 func formatDate(s int64) string {
 	return time.Unix(s, 0).Format("2006-01-02 15:04:05")
+}
+
+//校验命令 补全系统路径
+func checkCommand(cmd string) string {
+	if !path.IsAbs(cmd) {
+		var dirname, filename string
+		if dirname, filename = path.Split(cmd); dirname != "" {
+			return cmd
+		}
+
+		var cmdName string
+		pth := os.Getenv("PATH")
+		pths := strings.Split(pth, ":")
+		if len(pths) > 0 {
+			for _, p := range pths {
+				cmdName = p + string(os.PathSeparator) + filename
+				if _, err := os.Stat(cmdName); err == nil {
+					cmd = cmdName
+					break
+				}
+			}
+		}
+	}
+
+	return cmd
 }
