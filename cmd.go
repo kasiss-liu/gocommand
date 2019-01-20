@@ -9,6 +9,7 @@ import (
 //重新封装了cmd
 type Command struct {
 	id          string      //为每个命令随机分配一个字符串id
+	name        string      //为命令指定一个名称
 	pid         int         //命令如果运行 会将运行时的pid保存
 	cmd         string      //命令的位置
 	args        []string    //命令启动时的参数
@@ -23,6 +24,17 @@ func (c *Command) SetCron(express string) *Command {
 	c.isCron = true
 	c.cronExpress = express
 	return c
+}
+
+//设置命令的名称
+func (c *Command) SetName(name string) *Command {
+	c.name = name
+	return c
+}
+
+//获取命令的名称
+func (c *Command) Name() string {
+	return c.name
 }
 
 //验证是否是cron命令
@@ -70,6 +82,11 @@ func (c *Command) Pid() int {
 	return c.pid
 }
 
+//重置命令pid 用于程序退出后标记
+func (c *Command) ResetPid() {
+	c.pid = 0
+}
+
 //Process 获取进程结构指针
 func (c *Command) Process() *os.Process {
 	return c.process
@@ -90,6 +107,11 @@ func (c *Command) Kill() error {
 //Wait 等待进程执行完毕
 //进程结束后 会释放进程资源
 func (c *Command) Wait() (*os.ProcessState, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println(c.cmd + " wait() panic")
+		}
+	}()
 	return c.process.Wait()
 }
 

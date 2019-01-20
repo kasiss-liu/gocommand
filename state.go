@@ -130,6 +130,7 @@ func getRunningStatus() interface{} {
 //单个子程序的运行状态信息
 type CmdStatus struct {
 	ID         string `json:"id"`               //命令id
+	Name       string `json:name`               //命令名称
 	Pid        int    `json:"pid"`              //命令pid
 	Cmd        string `json:"cmd"`              //命令的启动参数
 	Output     string `json:"output"`           //命令输出的打印位置
@@ -139,10 +140,19 @@ type CmdStatus struct {
 }
 
 //按照id 获取单个cmd的运行状态
-func getCmd(id string) interface{} {
+func getCmd(cid string) interface{} {
 	var cmdCopy Command
 
-	if id, ok := findCmdId(id); ok {
+	var id = ""
+	var ok = false
+	//先查找name
+	id, ok = findCmdIdByName(cid)
+	//如果name查找失败 再查id
+	if !ok {
+		id, ok = findCmdId(cid)
+	}
+	//如果找到了id
+	if ok {
 		if cmd, ok := cmds[id]; ok {
 			var bktimes int = 0
 			var lastbk int64 = 0
@@ -161,6 +171,7 @@ func getCmd(id string) interface{} {
 			return CmdStatus{
 				ID:         cmdCopy.ID(),
 				Pid:        cmdCopy.Pid(),
+				Name:       cmdCopy.Name(),
 				Output:     cmdCopy.Output(),
 				BkTimes:    bktimes,
 				LastBkTime: bk,
@@ -169,7 +180,7 @@ func getCmd(id string) interface{} {
 			}
 		}
 	}
-	log.Println("runnning state error getCmd : can not find cmd id `" + id + "`")
+	log.Println("runnning state error getCmd : can not find cmd id `" + cid + "`")
 	return nil
 }
 
@@ -181,6 +192,16 @@ func findCmdId(id string) (string, bool) {
 		}
 	}
 	return id, false
+}
+
+//根据传入的name片段 查找完整的命令id
+func findCmdIdByName(name string) (string, bool) {
+	for nm, id := range cmdNameMap {
+		if strings.HasPrefix(nm, name) {
+			return id, true
+		}
+	}
+	return "", false
 }
 
 // 获取所有cmdList的运行状态

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	tk "github.com/kasiss-liu/taskeeper"
@@ -67,6 +68,16 @@ func main() {
 func getRequestData(signal, cat string) string {
 	if signal != "" {
 		if _, ok := tk.SigMap[signal]; ok {
+			if signal == "act" {
+				if len(os.Args) < 5 {
+					return ""
+				}
+				os.Args[3] = switchAct(os.Args[3])
+				if os.Args[3] == "" {
+					return ""
+				}
+				return tk.MsgSigCtl + " " + strings.Join(os.Args[2:], " ")
+			}
 			return tk.MsgSigCtl + " " + signal
 		}
 		fmt.Println("undefined ctl " + signal)
@@ -99,6 +110,22 @@ func getCmdId() string {
 				return ""
 			}
 		}
+	}
+	return ""
+}
+
+func switchAct(a string) string {
+
+	switch a {
+	case "reload":
+		return strconv.Itoa(tk.ActReload)
+	case "start":
+		// return strconv.Itoa(tk.ActStart)
+	case "exit":
+		return strconv.Itoa(tk.ActExit)
+	default:
+		fmt.Println("need act type!")
+		return ""
 	}
 	return ""
 }

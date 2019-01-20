@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kasiss-liu/go-tools/load-config"
+	loadConfig "github.com/kasiss-liu/go-tools/load-config"
 )
 
 const (
@@ -43,11 +43,13 @@ var (
 	workDir        string              //主程序工作目录
 	sysDirSep      string              //系统目录分隔符
 	MainPid        int                 //主程序pid
+	cmdNameMap     map[string]string   //命令的名称对应id关系
 )
 
 //初始化命令map
 func init() {
 	cmds = make(map[string]*Command)
+	cmdNameMap = make(map[string]string)
 	//统一状态文件存放位置 保证多个程序读取到同一个pid文件
 	//防止启动多个keeper导致管理混乱
 	switch runtime.GOOS {
@@ -176,10 +178,22 @@ func reloadConfigs() error {
 			if len([]byte(cmd)) > 0 {
 				c := NewCommand(cmd, args, output)
 				cron, _ := cnf.Get("cron").String()
+				name, _ := cnf.Get("name").String()
+
 				if len([]byte(cron)) > 0 {
 					c.SetCron(cron)
 				}
 				c.SetId(createID())
+
+				//如果设置了命令的名称则使用 否则使用命令随机的id作为name
+				if name != "" {
+					c.SetName(name)
+				} else {
+					c.SetName(c.ID())
+				}
+				//注册命令名称到存储映射 方便查询
+				cmdNameMap[c.Name()] = c.ID()
+
 				cmds[c.ID()] = c
 			}
 		}
@@ -257,12 +271,25 @@ func readConfig(filename string) error {
 			args, _ := cnf.Get("args").ArrayString()
 			if len([]byte(cmd)) > 0 {
 				c := NewCommand(cmd, args, output)
+
 				cron, _ := cnf.Get("cron").String()
 				if len([]byte(cron)) > 0 {
 					c.SetCron(cron)
 				}
 				c.SetId(createID())
+
+				name, _ := cnf.Get("name").String()
+				//如果设置了命令的名称则使用 否则使用命令随机的id作为name
+				if name != "" {
+					c.SetName(name)
+				} else {
+					c.SetName(c.ID())
+				}
+				//注册命令名称到存储映射 方便查询
+				cmdNameMap[c.Name()] = c.ID()
+
 				cmds[c.ID()] = c
+
 			}
 		}
 		return nil

@@ -15,6 +15,13 @@ const (
 	sigReload = 1 //重新读取配置 并重新启动所有协程
 	sigExit   = 0 //管理进程退出
 	sigStart  = 2 //启动协程
+	sigCtlCmd = 3 //单独控制启动某个命令
+)
+
+const (
+	ActReload = sigReload //重新读取配置 并重新启动所有协程
+	ActExit   = sigExit   //管理进程退出
+	ActStart  = sigStart  //启动协程
 )
 
 //定义一些常量 错误编号
@@ -25,6 +32,7 @@ const (
 	ErrResMissCmd        //缺少命令ID 3
 	ErrResStatNil        //未获取到合法的参数 4
 	ErrResWrgSig         //未定义的信号 5
+	ErrResCtlSig         //缺少需要重启的命令id 6
 )
 
 //错误编号对应的消息数组
@@ -35,6 +43,7 @@ var ErrMsgMap = []string{
 	"miss cmd id",
 	"found nil args",
 	"undefined signal",
+	"undefined restart cmd",
 }
 
 //客户端操作命令常量
@@ -44,23 +53,32 @@ const (
 )
 
 var (
-	SigMap         map[string]int    //信号map
-	StatArgsMap    []string          //信号参数map
-	serviceDonw    chan bool         //结束服务通道
-	unixServer     *net.UnixListener //unix下的服务 .sock启动 暂未启用
-	tcpServer      *net.TCPListener  //所有环境下启动tcp服务
-	signalChan     chan int          //信号通道
-	sysSigChan     chan os.Signal    //监听系统命令 ctl+c kill 等
-	msgProcessLock sync.Mutex        //消息处理锁
+	SigMap           map[string]int    //信号map
+	StatArgsMap      []string          //信号参数map
+	serviceDonw      chan bool         //结束服务通道
+	unixServer       *net.UnixListener //unix下的服务 .sock启动 暂未启用
+	tcpServer        *net.TCPListener  //所有环境下启动tcp服务
+	signalChan       chan int          //信号通道
+	sysSigChan       chan os.Signal    //监听系统命令 ctl+c kill 等
+	msgProcessLock   sync.Mutex        //消息处理锁
+	signalCmdCtlChan chan cmdCtlAction //命令单独控制通道
 )
+
+//命令控制信息结构体
+type cmdCtlAction struct {
+	sig   int
+	cmdid string
+}
 
 func init() {
 	signalChan = make(chan int)
 	sysSigChan = make(chan os.Signal)
 	serviceDonw = make(chan bool)
+	signalCmdCtlChan = make(chan cmdCtlAction, 10)
 	SigMap = map[string]int{
 		"reload": sigReload,
 		"exit":   sigExit,
+		"act":    sigCtlCmd,
 	}
 	StatArgsMap = []string{
 		"cmd",
@@ -198,7 +216,7 @@ func msgProcess(msg []byte) (interface{}, int, bool) {
 	//匹配命令类型
 	switch data[0] {
 	case MsgSigCtl:
-		msg, errcode := sendSignal(data[argStart])
+		msg, errcode := sendSignal(data[argStart:]...)
 		return msg, errcode, format
 	case MsgSigStat:
 		msg, errcode := sendStat(data[argStart:]...)
@@ -244,18 +262,40 @@ func getResponseBytes(errcode int, msgData interface{}, format bool) []byte {
 }
 
 //控制发送信号方法
-func sendSignal(s string) (msg string, errcode int) {
-
+func sendSignal(ss ...string) (msg string, errcode int) {
+	s := ss[0]
 	//向通道内发送信号
 	if sig, ok := SigMap[s]; ok {
-		errcode = 0
-		msg = "ok"
-		signalChan <- sig
+		switch sig {
+		case sigCtlCmd:
+			if len(ss) < 3 {
+				log.Println(ss)
+				msg = ErrMsgMap[ErrResCtlSig] + " : {" + s + "}"
+				errcode = ErrResCtlSig
+				log.Println(msg)
+			} else {
+				msg = "ok"
+				errcode = 0
+				ctlAction, err := strconv.Atoi(ss[1])
+				if err != nil {
+					msg = ErrMsgMap[ErrResCtlSig] + " : {" + s + "}"
+					log.Println(msg + " error :" + err.Error())
+					errcode = ErrResCtlSig
+				} else {
+					signalCmdCtlChan <- cmdCtlAction{ctlAction, ss[2]}
+					signalChan <- sig
+				}
+			}
+		default:
+			errcode = 0
+			msg = "ok"
+			signalChan <- sig
+		}
 
 	} else {
 		msg = ErrMsgMap[ErrResWrgSig] + " : {" + s + "}"
 		errcode = ErrResWrgSig
-		log.Println(msg)
+
 	}
 	return
 }
