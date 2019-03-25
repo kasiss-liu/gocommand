@@ -19,9 +19,12 @@ const (
 )
 
 const (
-	ActReload = sigReload //重新读取配置 并重新启动所有协程
-	ActExit   = sigExit   //管理进程退出
-	ActStart  = sigStart  //启动协程
+	//ActReload 重新读取配置 并重新启动所有协程
+	ActReload = sigReload
+	//ActExit 管理进程退出
+	ActExit = sigExit
+	//ActStart 启动协程
+	ActStart = sigStart
 )
 
 //定义一些常量 错误编号
@@ -35,7 +38,7 @@ const (
 	ErrResCtlSig         //缺少需要重启的命令id 6
 )
 
-//错误编号对应的消息数组
+//ErrMsgMap 错误编号对应的消息数组
 var ErrMsgMap = []string{
 	"success",
 	"wrong message",
@@ -53,15 +56,24 @@ const (
 )
 
 var (
-	SigMap           map[string]int    //信号map
-	StatArgsMap      []string          //信号参数map
-	serviceDonw      chan bool         //结束服务通道
-	unixServer       *net.UnixListener //unix下的服务 .sock启动 暂未启用
-	tcpServer        *net.TCPListener  //所有环境下启动tcp服务
-	signalChan       chan int          //信号通道
-	sysSigChan       chan os.Signal    //监听系统命令 ctl+c kill 等
-	msgProcessLock   sync.Mutex        //消息处理锁
-	signalCmdCtlChan chan cmdCtlAction //命令单独控制通道
+	//SigMap 信号map
+	SigMap map[string]int
+	//StatArgsMap 信号参数map
+	StatArgsMap []string
+	//serviceDonw 结束服务通道
+	serviceDonw chan bool
+	//unixServer unix下的服务 .sock启动 暂未启用
+	unixServer *net.UnixListener
+	//tcpServer 所有环境下启动tcp服务
+	tcpServer *net.TCPListener
+	//signalChan 信号通道
+	signalChan chan int
+	//sysSigChan 监听系统命令 ctl+c kill 等
+	sysSigChan chan os.Signal
+	//msgProcessLock 消息处理锁
+	msgProcessLock sync.Mutex
+	//signalCmdCtlChan 命令单独控制通道
+	signalCmdCtlChan chan cmdCtlAction
 )
 
 //命令控制信息结构体
@@ -257,7 +269,7 @@ func getResponseBytes(errcode int, msgData interface{}, format bool) []byte {
 	if format && errcode == 0 {
 		fmtStr = "pretty|\n"
 	}
-	msg, _ = prettyJson(msgData, format)
+	msg, _ = prettyJSON(msgData, format)
 	return []byte(strconv.Itoa(errcode) + "|format:" + fmtStr + msg)
 }
 

@@ -9,7 +9,7 @@ import (
 	"github.com/kasiss-liu/go-tools/cron"
 )
 
-//状态机
+//State 状态机
 type State struct {
 	TasksNum   int //程序总的运行数量
 	RunningNum int //正在运行的命令数
@@ -38,7 +38,7 @@ func init() {
 	RunState = &State{CronState: false} //初始化一个状态机
 }
 
-//程序启动
+//Run 程序启动
 //子程序 启动、监控并等待操作信号
 func Run() {
 
@@ -327,7 +327,7 @@ func doCtlCmdAction() {
 	act := <-signalCmdCtlChan
 	switch act.sig {
 	case sigExit:
-		cid, ok := findCmdIdByName(act.cmdid)
+		cid, ok := findCmdIDByName(act.cmdid)
 		if ok {
 			if cmd, ok := cmds[cid]; ok {
 				go exitSingleTask(cid, cmd)
@@ -337,7 +337,7 @@ func doCtlCmdAction() {
 		log.Println("ctl action exit error : no cmd found -- " + act.cmdid)
 	case sigStart:
 	case sigReload:
-		cid, ok := findCmdIdByName(act.cmdid)
+		cid, ok := findCmdIDByName(act.cmdid)
 		if ok {
 			go restartTask(cid)
 		} else {

@@ -13,16 +13,45 @@ import (
 )
 
 var (
-	StateCopy  State   //监控服务状态的备份 用于返回客户端查询请求
-	StartTime  int64   //监控服务启动时间
-	ReloadTime []int64 //监控服务重载的时间点
+	//StateCopy 监控服务状态的备份 用于返回客户端查询请求
+	StateCopy CopyState
+	//StartTime 监控服务启动时间
+	StartTime int64
+	//ReloadTime 监控服务重载的时间点
+	ReloadTime []int64
 	fmtIdent   = strings.Repeat(" ", 4)
 	fmtPrefix  = ""
 )
 
+//CopyState 运行状态结构备份
+type CopyState struct {
+	TasksNum   int //程序总的运行数量
+	RunningNum int //正在运行的命令数
+	BrokenNum  int //由于崩溃或结束运行的命令数
+
+	RunningList  map[string]*Command //正在运行的命令map
+	BrokenList   map[string]*Command //运行中断的命令map
+	BrokenTries  map[string]int      //命令中断后在容忍间隔时间内的重试次数
+	BrokenPoints map[string]int64    //命令中断的时间点
+	CronState    bool                //是否已经开启cron协程
+	SecCronList  map[string]*Command //秒级cron列表
+	MinCronList  map[string]*Command //分钟级cron列表
+}
+
 //获取一个主程序运行状态的copy
-func copyState() State {
-	return *RunState
+func copyState() CopyState {
+	rs := CopyState{}
+	rs.BrokenList = RunState.BrokenList
+	rs.BrokenNum = RunState.BrokenNum
+	rs.BrokenPoints = RunState.BrokenPoints
+	rs.BrokenTries = RunState.BrokenTries
+	rs.CronState = RunState.CronState
+	rs.MinCronList = RunState.MinCronList
+	rs.RunningList = RunState.RunningList
+	rs.RunningNum = RunState.RunningNum
+	rs.SecCronList = RunState.SecCronList
+	rs.TasksNum = RunState.TasksNum
+	return rs
 }
 
 //同步主程序的运行状态
@@ -69,7 +98,7 @@ func delChildPidsFile() error {
 	return nil
 }
 
-//服务状态
+//RunningStatus 服务状态
 type RunningStatus struct {
 	Pid            int      `json:"main_pid"`          //主程序pid
 	StartTime      string   `json:"start_time"`        //主程序启动时间
@@ -79,9 +108,9 @@ type RunningStatus struct {
 	TermTasks      []string `json:"term_task_list"`    //中断的子程序命令集合
 	RunningSeconds string   `json:"running_seconds"`   //程序运行时间
 
-	CronState   bool     `json:"cron_state"`      //是否已经开启cron协程
-	SecCronList []string `json:"second_cron_list` //秒级cron列表
-	MinCronList []string `json:"minute_cron_list` //分钟级cron列表
+	CronState   bool     `json:"cron_state"`       //是否已经开启cron协程
+	SecCronList []string `json:"second_cron_list"` //秒级cron列表
+	MinCronList []string `json:"minute_cron_list"` //分钟级cron列表
 }
 
 //获取监控服务的运行状态
@@ -90,10 +119,10 @@ func getRunningStatus() interface{} {
 	runList := make([]string, 0, 5)
 	termList := make([]string, 0, 5)
 
-	for rid, _ := range StateCopy.RunningList {
+	for rid := range StateCopy.RunningList {
 		runList = append(runList, rid)
 	}
-	for tid, _ := range StateCopy.BrokenList {
+	for tid := range StateCopy.BrokenList {
 		termList = append(termList, tid)
 	}
 	stString := formatDate(StartTime)
@@ -104,12 +133,12 @@ func getRunningStatus() interface{} {
 
 	cronState := StateCopy.CronState
 	secCron := make([]string, 0, 5)
-	for sid, _ := range StateCopy.SecCronList {
+	for sid := range StateCopy.SecCronList {
 		secCron = append(secCron, sid)
 	}
 
 	minCron := make([]string, 0, 5)
-	for mid, _ := range StateCopy.MinCronList {
+	for mid := range StateCopy.MinCronList {
 		minCron = append(minCron, mid)
 	}
 
@@ -127,10 +156,10 @@ func getRunningStatus() interface{} {
 	}
 }
 
-//单个子程序的运行状态信息
+//CmdStatus 单个子程序的运行状态信息
 type CmdStatus struct {
 	ID         string `json:"id"`               //命令id
-	Name       string `json:name`               //命令名称
+	Name       string `json:"name"`             //命令名称
 	Pid        int    `json:"pid"`              //命令pid
 	Cmd        string `json:"cmd"`              //命令的启动参数
 	Output     string `json:"output"`           //命令输出的打印位置
@@ -146,16 +175,16 @@ func getCmd(cid string) interface{} {
 	var id = ""
 	var ok = false
 	//先查找name
-	id, ok = findCmdIdByName(cid)
+	id, ok = findCmdIDByName(cid)
 	//如果name查找失败 再查id
 	if !ok {
-		id, ok = findCmdId(cid)
+		id, ok = findCmdID(cid)
 	}
 	//如果找到了id
 	if ok {
 		if cmd, ok := cmds[id]; ok {
-			var bktimes int = 0
-			var lastbk int64 = 0
+			var bktimes int
+			var lastbk int64
 			if _, ok := StateCopy.BrokenTries[id]; ok {
 				bktimes = StateCopy.BrokenTries[id]
 				lastbk = StateCopy.BrokenPoints[id]
@@ -185,8 +214,8 @@ func getCmd(cid string) interface{} {
 }
 
 //按传入的id片段 查找完整的命令id
-func findCmdId(id string) (string, bool) {
-	for k, _ := range cmds {
+func findCmdID(id string) (string, bool) {
+	for k := range cmds {
 		if strings.HasPrefix(k, id) {
 			return k, true
 		}
@@ -195,7 +224,7 @@ func findCmdId(id string) (string, bool) {
 }
 
 //根据传入的name片段 查找完整的命令id
-func findCmdIdByName(name string) (string, bool) {
+func findCmdIDByName(name string) (string, bool) {
 	for nm, id := range cmdNameMap {
 		if strings.HasPrefix(nm, name) {
 			return id, true
@@ -207,7 +236,7 @@ func findCmdIdByName(name string) (string, bool) {
 // 获取所有cmdList的运行状态
 func getCmdList() interface{} {
 	var list = make([]interface{}, 0, 5)
-	for id, _ := range cmds {
+	for id := range cmds {
 		cmd := getCmd(id)
 		if cmd != nil {
 			list = append(list, getCmd(id))
@@ -217,7 +246,7 @@ func getCmdList() interface{} {
 }
 
 //给json增加锁进 适合阅读
-func prettyJson(jsonData interface{}, format bool) (string, error) {
+func prettyJSON(jsonData interface{}, format bool) (string, error) {
 	var byteData []byte
 	var err error
 	if format {
@@ -345,22 +374,29 @@ func delPidDescFile() error {
 	return nil
 }
 
-//主程序配置结构
+//ProcessConfig 主程序配置结构
 type ProcessConfig struct {
-	ConfigPath string `json:"conf_path"`  //启动时使用的配置文件
-	TcpAddr    string `json:"tcp_addr"`   //Tcp启动地址
-	PidFile    string `json:"pid_file"`   //Pid文件地址
-	pidDesc    string `json:"pid_desc"`   //Pid描述文件
-	SockFile   string `json:"sock_file"`  //sock文件存储路径
-	ChdFile    string `json:"child_pids"` //子进程pid统一存储路径
-	LogFile    string `json:"log_file"`   //主程序日志打印位置
+	//ConfigPath 启动时使用的配置文件
+	ConfigPath string `json:"conf_path"`
+	//TCPAddr Tcp启动地址
+	TCPAddr string `json:"tcp_addr"`
+	//PidFile Pid文件地址
+	PidFile string `json:"pid_file"`
+	//pidDesc Pid描述文件
+	pidDesc string //`json:"pid_desc"`
+	//SockFile sock文件存储路径
+	SockFile string `json:"sock_file"`
+	//ChdFile 子进程pid统一存储路径
+	ChdFile string `json:"child_pids"`
+	//LogFile 主程序日志打印位置
+	LogFile string `json:"log_file"`
 }
 
 //获取主进程配置
 func getProcessConfig() interface{} {
 	pconf := ProcessConfig{
 		ConfigPath: configRaw.Path(),
-		TcpAddr:    configPort,
+		TCPAddr:    configPort,
 		PidFile:    pidPath,
 		ChdFile:    cPidPath,
 		LogFile:    logPath,

@@ -19,35 +19,47 @@ type Command struct {
 	process     *os.Process //具体进程指针
 }
 
-//设置命令为cron命令
+//SetCron 设置命令为cron命令
 func (c *Command) SetCron(express string) *Command {
 	c.isCron = true
 	c.cronExpress = express
 	return c
 }
 
-//设置命令的名称
+//SetName 设置命令的名称
 func (c *Command) SetName(name string) *Command {
 	c.name = name
 	return c
 }
 
-//获取命令的名称
+//Name 获取命令的名称
 func (c *Command) Name() string {
 	return c.name
 }
 
-//验证是否是cron命令
+//IsCron 验证是否是cron命令
 func (c *Command) IsCron() bool {
 	return c.isCron
 }
 
-//获取命令输出打印位置
+//Output 获取命令输出打印位置
 func (c *Command) Output() string {
 	return c.output
 }
 
-//命令启动
+//TurnOffCron 主动关闭cron
+func (c *Command) TurnOffCron() bool {
+	c.isCron = false
+	return true
+}
+
+//TurnOnCron 主动开启cron
+func (c *Command) TurnOnCron() bool {
+	c.isCron = true
+	return true
+}
+
+//Start 命令启动
 func (c *Command) Start() int {
 	var err error
 	var file *os.File
@@ -67,13 +79,13 @@ func (c *Command) Start() int {
 	return 0
 }
 
-//获取命令字符串Id 创建时随机分配
+//ID 获取命令字符串Id 创建时随机分配
 func (c *Command) ID() string {
 	return c.id
 }
 
-//手动设置一个id
-func (c *Command) SetId(id string) {
+//SetID 手动设置一个id
+func (c *Command) SetID(id string) {
 	c.id = id
 }
 
@@ -82,7 +94,7 @@ func (c *Command) Pid() int {
 	return c.pid
 }
 
-//重置命令pid 用于程序退出后标记
+//ResetPid 重置命令pid 用于程序退出后标记
 func (c *Command) ResetPid() {
 	c.pid = 0
 }
@@ -115,7 +127,7 @@ func (c *Command) Wait() (*os.ProcessState, error) {
 	return c.process.Wait()
 }
 
-//Signal 向进程传递信号
+//Singal 向进程传递信号
 func (c *Command) Singal(sig os.Signal) error {
 	return c.process.Signal(sig)
 }
@@ -126,7 +138,7 @@ func (c *Command) Release() error {
 	return c.process.Release()
 }
 
-//返回一个等待执行的cmd结构体
+//NewCommand 返回一个等待执行的cmd结构体
 func NewCommand(cmd string, args []string, output string) *Command {
 	return &Command{
 		cmd:         cmd,

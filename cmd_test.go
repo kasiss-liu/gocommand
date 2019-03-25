@@ -37,7 +37,7 @@ func TestCmd(t *testing.T) {
 	cmd.SetCron("* * * * *")
 	isCron := cmd.IsCron()
 	t.Logf("iscron : %#v\n", isCron)
-	cmd.SetId("testId")
+	cmd.SetID("testId")
 	id := cmd.ID()
 	t.Logf("cmd id: %s \n", id)
 

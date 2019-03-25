@@ -18,7 +18,7 @@ const (
 	minuteSec = 60
 )
 
-//获取父级目录地址
+//GetParentDir 获取父级目录地址
 func GetParentDir(p string) string {
 	p = strings.Replace(p, "\\", sysDirSep, -1)
 	p = strings.Replace(p, "/", sysDirSep, -1)
@@ -38,22 +38,22 @@ func getChar() string {
 	}
 }
 
-//获取主程序pid文件的储存路径
+//GetPidFile 获取主程序pid文件的储存路径
 func GetPidFile() string {
 	return pidPath
 }
 
-//获取主程序控制的子程序pid文件储存路径
+//GetChildPidsFile 获取主程序控制的子程序pid文件储存路径
 func GetChildPidsFile() string {
 	return cPidPath
 }
 
-//获取tcp启动地址
-func GetTcpAddr() string {
+//GetTCPAddr 获取tcp启动地址
+func GetTCPAddr() string {
 	return configPort
 }
 
-//获取主进程的描述信息
+//ParsePidDesc 获取主进程的描述信息
 func ParsePidDesc() (ProcessConfig, error) {
 	p := ProcessConfig{}
 	_, err := os.Stat(pidDescPath)

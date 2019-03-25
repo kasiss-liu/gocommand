@@ -19,31 +19,53 @@ import (
 )
 
 const (
-	DefaultBrokenGap int64 = 5           //默认的中断容忍间隔
-	DefaultHost            = "127.0.0.1" //默认的tcp 主机地址
-	DefaultPort            = "17101"     //默认的tcp 端口
-	UnixSysRunDir          = "/var/run/" //uinx系的运行目录
-	UnixSysTmpDir          = "/tmp/"     //unix系的临时目录
+	//DefaultBrokenGap 默认的中断容忍间隔
+	DefaultBrokenGap int64 = 5
+	//DefaultHost 默认的tcp 主机地址
+	DefaultHost = "127.0.0.1"
+	//DefaultPort 默认的tcp 端口
+	DefaultPort = "17101"
+	//UnixSysRunDir uinx系的运行目录
+	UnixSysRunDir = "/var/run/"
+	//UnixSysTmpDir unix系的临时目录
+	UnixSysTmpDir = "/tmp/"
 )
 
 var (
-	configName     = "taskeeper"       //默认名称
-	configHost     string              //tcp主机地址
-	configPort     string              //tcp 启动端口 例如 127.0.0.1:17101
-	configRaw      *loadConfig.Config  //启动时载入的config文件结构
-	output         = os.Stdout         //主程序输出打印位置
-	cmds           map[string]*Command //存储config中配置的命令列表
-	customGap      int64               //自定义的容忍间隔
-	sockPath       string              //.sock文件目录
-	logPath        string              //主程序打印位置
-	pidPath        string              //pid文件存储位置
-	cPidPath       string              //主程序启动的子程序pid存储位置
-	pidDescPath    string              //主程序启动的描述文件
-	DefaultLogPath string              //默认主程序日志打印位置
-	workDir        string              //主程序工作目录
-	sysDirSep      string              //系统目录分隔符
-	MainPid        int                 //主程序pid
-	cmdNameMap     map[string]string   //命令的名称对应id关系
+	//默认名称
+	configName = "taskeeper"
+	//tcp主机地址
+	configHost string
+	//tcp 启动端口 例如 127.0.0.1:17101
+	configPort string
+	//启动时载入的config文件结构
+	configRaw *loadConfig.Config
+	//主程序输出打印位置
+	output = os.Stdout
+	//存储config中配置的命令列表
+	cmds map[string]*Command
+	//自定义的容忍间隔
+	customGap int64
+	//.sock文件目录
+	sockPath string
+	//主程序打印位置
+	logPath string
+	//pid文件存储位置
+	pidPath string
+	//主程序启动的子程序pid存储位置
+	cPidPath string
+	//主程序启动的描述文件
+	pidDescPath string
+	//DefaultLogPath 默认主程序日志打印位置
+	DefaultLogPath string
+	//主程序工作目录
+	workDir string
+	//系统目录分隔符
+	sysDirSep string
+	//MainPid 主程序pid
+	MainPid int
+	//命令的名称对应id关系
+	cmdNameMap map[string]string
 )
 
 //初始化命令map
@@ -81,6 +103,7 @@ func init() {
 
 }
 
+//Start 启动服务
 func Start(configPath string, deamon, forceLog bool) {
 
 	log.SetOutput(output)
@@ -183,7 +206,7 @@ func reloadConfigs() error {
 				if len([]byte(cron)) > 0 {
 					c.SetCron(cron)
 				}
-				c.SetId(createID())
+				c.SetID(createID())
 
 				//如果设置了命令的名称则使用 否则使用命令随机的id作为name
 				if name != "" {
@@ -199,7 +222,7 @@ func reloadConfigs() error {
 		}
 		return nil
 	}
-	return errors.New("No Legal Command Registered!")
+	return errors.New("no legal command registered")
 }
 
 //判断配置文件是否存在
@@ -276,7 +299,7 @@ func readConfig(filename string) error {
 				if len([]byte(cron)) > 0 {
 					c.SetCron(cron)
 				}
-				c.SetId(createID())
+				c.SetID(createID())
 
 				name, _ := cnf.Get("name").String()
 				//如果设置了命令的名称则使用 否则使用命令随机的id作为name
@@ -294,7 +317,7 @@ func readConfig(filename string) error {
 		}
 		return nil
 	}
-	return errors.New("No Legal Command Registered!")
+	return errors.New("no legal command registered")
 }
 
 //更改输出打印位置
@@ -329,8 +352,9 @@ func getAbsPath(p string) string {
 //随机数因子
 //用以解决windows下出现的同一时刻
 //会产生同一随机数的问题
-var randSeed int64 = 0
+var randSeed int64
 
+//创建一个唯一id
 func createID() string {
 	for {
 		rand.Seed(time.Now().UTC().Unix() + randSeed)
@@ -349,7 +373,7 @@ func createID() string {
 	}
 }
 
-//外部设置工作目录
+//SetWorkDir 外部设置工作目录
 //如果是绝对路径 直接赋值
 //如果是相对路径 则按照当前目录为起始获取绝对路径
 func SetWorkDir(dir string) bool {

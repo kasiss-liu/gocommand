@@ -25,14 +25,14 @@ func TestStart(t *testing.T) {
 	t.Log("runstatus:", rs)
 	cmdList := getCmdList()
 	t.Log("cmd list :", cmdList)
-	for id, _ := range cmds {
+	for id := range cmds {
 		msgProcess([]byte(`stat cmd ` + id))
 		break
 	}
 
 	t.Log(GetPidFile())
 	t.Log(GetChildPidsFile())
-	t.Log(GetTcpAddr())
+	t.Log(GetTCPAddr())
 	t.Log(ParsePidDesc())
 	t.Log(GetParentDir(cPidPath))
 
@@ -61,7 +61,7 @@ func TestGetFuncs(t *testing.T) {
 	t.Log(delPidFile())
 	t.Log(GetPidFile())
 	t.Log(GetChildPidsFile())
-	t.Log(GetTcpAddr())
+	t.Log(GetTCPAddr())
 	t.Log(ParsePidDesc())
 	t.Log(GetParentDir(cPidPath))
 }

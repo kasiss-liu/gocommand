@@ -33,7 +33,7 @@ func main() {
 			fmt.Println("load pid desc error : " + err.Error())
 			return
 		}
-		addr = ps.TcpAddr
+		addr = ps.TCPAddr
 	}
 	//解析请求字符串
 	requestString := getRequestData(*s, *cat)
@@ -100,15 +100,14 @@ func getRequestData(signal, cat string) string {
 	return ""
 }
 
-//查询cmd的id
+//ge查询cmd的id
 func getCmdId() string {
 	for k, v := range os.Args {
 		if v == tk.StatArgsMap[0] {
 			if len(os.Args) > k {
 				return os.Args[k+1]
-			} else {
-				return ""
 			}
+			break
 		}
 	}
 	return ""
