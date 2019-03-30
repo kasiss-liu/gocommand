@@ -16,6 +16,8 @@ const (
 	sigExit   = 0 //管理进程退出
 	sigStart  = 2 //启动协程
 	sigCtlCmd = 3 //单独控制启动某个命令
+	sigPause  = 4 //任务处理暂停
+	sigExec   = 5 //单独执行
 )
 
 const (
@@ -25,6 +27,10 @@ const (
 	ActExit = sigExit
 	//ActStart 启动协程
 	ActStart = sigStart
+	//ActExec 单独执行命令
+	ActExec = sigExec
+	//ActPause 终端所有任务
+	ActPause = sigPause
 )
 
 //定义一些常量 错误编号
@@ -89,8 +95,10 @@ func init() {
 	signalCmdCtlChan = make(chan cmdCtlAction, 10)
 	SigMap = map[string]int{
 		"reload": sigReload,
+		"start":  sigStart,
 		"exit":   sigExit,
 		"act":    sigCtlCmd,
+		"pause":  sigPause,
 	}
 	StatArgsMap = []string{
 		"cmd",

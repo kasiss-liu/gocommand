@@ -48,6 +48,7 @@ func main() {
 	}
 	defer conn.Close()
 	n, err := conn.Write([]byte(requestString))
+	fmt.Println(requestString)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -88,9 +89,8 @@ func getRequestData(signal, cat string) string {
 			if cat == arg {
 				if k > 0 {
 					return tk.MsgSigStat + " f " + cat
-				} else {
-					return tk.MsgSigStat + " f " + cat + " " + getCmdId()
 				}
+				return tk.MsgSigStat + " f " + cat + " " + getCmdID()
 			}
 		}
 		fmt.Println("undefined cat args : " + cat)
@@ -101,7 +101,7 @@ func getRequestData(signal, cat string) string {
 }
 
 //ge查询cmd的id
-func getCmdId() string {
+func getCmdID() string {
 	for k, v := range os.Args {
 		if v == tk.StatArgsMap[0] {
 			if len(os.Args) > k {
@@ -119,12 +119,15 @@ func switchAct(a string) string {
 	case "reload":
 		return strconv.Itoa(tk.ActReload)
 	case "start":
-		// return strconv.Itoa(tk.ActStart)
+		return strconv.Itoa(tk.ActStart)
 	case "exit":
 		return strconv.Itoa(tk.ActExit)
+	case "pause":
+		return strconv.Itoa(tk.ActPause)
+	case "exec":
+		return strconv.Itoa(tk.ActExec)
 	default:
 		fmt.Println("need act type!")
 		return ""
 	}
-	return ""
 }

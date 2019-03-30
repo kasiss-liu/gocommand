@@ -66,6 +66,8 @@ var (
 	MainPid int
 	//命令的名称对应id关系
 	cmdNameMap map[string]string
+	//AutoStart 自动启动命令
+	AutoStart bool
 )
 
 //初始化命令map

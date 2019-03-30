@@ -24,6 +24,7 @@ type State struct {
 	CronState   bool                //是否已经开启cron协程
 	SecCronList map[string]*Command //秒级cron列表
 	MinCronList map[string]*Command //分钟级cron列表
+	IsRun       bool                //是否已经开始运行
 }
 
 //运行时的必要参数
@@ -57,10 +58,12 @@ func Run() {
 
 	//初始化状态机实力参数
 	initTask()
-	//向通道内预写入一个开始信号
-	go func() {
-		signalChan <- sigStart
-	}()
+	//如果是自动运行模式 向通道内预写入一个开始信号
+	if AutoStart {
+		go func() {
+			signalChan <- sigStart
+		}()
+	}
 	//启动监控服务数据同步器
 	syncStateToCopy()
 	//按照配置启动命令
@@ -81,6 +84,12 @@ func Run() {
 		case sigStart:
 			startTask()
 		//接收到退出信号后 按次序杀死管理的进程 退出主程序
+		case sigPause:
+			log.Println("keeper pausing!")
+			log.Println("run starting exit process ...")
+			exitTask()
+			log.Println("run all process exit !")
+			log.Println("keeper paused!")
 		case sigExit:
 			log.Println("run starting exit process ...")
 			exitTask()
@@ -99,6 +108,11 @@ func Run() {
 
 //运行常驻命令
 func runDeamonRoutine(id string, c *Command) {
+	//验证命令是否已经在运行
+	if c.Pid() > 0 {
+		log.Println("cmd:" + id + " is running")
+		return
+	}
 	RunState.BrokenTries[id] = 0
 	for {
 		//启动命令
@@ -109,6 +123,7 @@ func runDeamonRoutine(id string, c *Command) {
 			RunState.BrokenNum++
 			RunState.Numlock.Unlock()
 			RunState.BrokenList[id] = c
+			log.Println("cmd:" + id + " start failed no try")
 			break
 		}
 		//进程运行数+1
@@ -119,10 +134,12 @@ func runDeamonRoutine(id string, c *Command) {
 		RunState.Numlock.Unlock()
 
 		//等待程序运行结束
-		_, err := c.Wait()
-		//如果程序异常导致运行结束 打印异常退出原因
-		if err != nil {
-			log.Println("run routine except exit cmd:" + id + " errmsg:" + err.Error())
+		if c.Pid() > 0 {
+			_, err := c.Wait()
+			//如果程序异常导致运行结束 打印异常退出原因
+			if err != nil {
+				log.Println("run routine except exit cmd:" + id + " errmsg:" + err.Error())
+			}
 		}
 		//验证是否是管理程序主动退出协程
 		if _, ok := RunState.RunningList[id]; !ok {
@@ -168,6 +185,7 @@ func exitTask() {
 	for id, cmd := range RunState.RunningList {
 		exitSingleTask(id, cmd)
 	}
+	RunState.IsRun = false
 }
 
 //单个退出进程
@@ -176,11 +194,15 @@ func exitSingleTask(id string, cmd *Command) {
 	RunState.RunningNum--
 	delete(RunState.RunningList, id)
 	RunState.Numlock.Unlock()
-	err := cmd.Kill()
-	if err != nil {
-		log.Println("run kill " + id + "error : " + err.Error())
+	if cmd.Pid() > 0 {
+		err := cmd.Kill()
+		if err != nil {
+			log.Println("run kill " + id + "error : " + err.Error())
+		} else {
+			log.Println("run kill cmd : " + id)
+		}
 	} else {
-		log.Println("run kill cmd : " + id)
+		log.Println("run kill cmd : " + id + "error: process not running")
 	}
 }
 
@@ -213,17 +235,25 @@ func initTask() {
 //遍历启动所有cmd
 func startTask() error {
 	//服务已经启动过
-	if RunState.TasksNum > 0 {
+	if RunState.IsRun {
 		startedErrmsg := "run start tasks has started"
 		log.Println(startedErrmsg)
 		return errors.New(startedErrmsg)
 	}
+
+	RunState.IsRun = true
+
 	//启动服务
 	for id, cmd := range cmds {
 		if !cmd.IsCron() {
 			RunState.TasksNum++
-			go runDeamonRoutine(id, cmd)
-			log.Println("run started cmd : " + id)
+			if !cmd.IsPause() {
+				go runDeamonRoutine(id, cmd)
+				log.Println("run started cmd : " + id)
+			} else {
+				log.Println("run paused cmd : " + id)
+			}
+
 		}
 		if cmd.IsCron() {
 			checkCronExpress(cmd)
@@ -245,22 +275,28 @@ func startTask() error {
 }
 
 //单独重启一个执行命令
-func restartTask(cid string) error {
+func restartTask(cid string) {
 	for id, cmd := range cmds {
 		if id == cid {
-			//终结之前运行的进程
-			exitSingleTask(id, cmd)
 			//启动命令
 			if !cmd.IsCron() {
-				RunState.TasksNum++
-				go runDeamonRoutine(id, cmd)
-				log.Println("run started cmd : " + id)
-				return nil
+				//终结之前运行的进程
+				exitSingleTask(id, cmd)
+				//开启新进程
+				if !cmd.IsPause() {
+					go runDeamonRoutine(id, cmd)
+					log.Println("run started cmd : " + id)
+					return
+				}
+				log.Println("run restart error: Cmd is Paused -- " + id)
+				return
 			}
-			return errors.New("run restart error: Cmd in Cron Type cannot be run -- " + id)
+			log.Println("run restart error: Cmd in Cron Type cannot be run -- " + id)
+			return
 		}
 	}
-	return errors.New("run restart error : No cmd found -- " + cid)
+	log.Println("run restart error : No cmd found -- " + cid)
+	return
 }
 
 //启动秒级cron运行任务
@@ -268,8 +304,12 @@ func runSecondCronRoutine() {
 	for {
 		for _, cmd := range RunState.SecCronList {
 			if cron.ValidExpressNow(cmd.cronExpress) {
-				log.Println("cron sec " + cmd.ID())
-				go doCronRoutine(cmd)
+				if !cmd.IsPause() {
+					log.Println("cron sec " + cmd.ID())
+					go doCronRoutine(cmd)
+				} else {
+					log.Println("cron sec " + cmd.ID() + "is paused")
+				}
 			}
 		}
 		time.Sleep(1 * time.Second)
@@ -281,8 +321,12 @@ func runMinuteCronRoutine() {
 	for {
 		for _, cmd := range RunState.MinCronList {
 			if cron.ValidExpressNow(cmd.cronExpress) {
-				log.Println("cron min " + cmd.ID())
-				go doCronRoutine(cmd)
+				if !cmd.IsPause() {
+					log.Println("cron min " + cmd.ID())
+					go doCronRoutine(cmd)
+				} else {
+					log.Println("cron min " + cmd.ID() + "is paused")
+				}
 			}
 		}
 		time.Sleep(60 * time.Second)
@@ -305,6 +349,7 @@ func checkCronExpress(cmd *Command) {
 	} else {
 		RunState.MinCronList[cmd.id] = cmd
 	}
+	RunState.TasksNum++
 }
 
 //协程启动cron进程
@@ -313,12 +358,16 @@ func doCronRoutine(cmd *Command) {
 		log.Println("cron ignore " + cmd.ID())
 		return
 	}
+
 	cmd.Start()
-	log.Println("cron cmd id: " + cmd.ID() + " started")
-	_, err := cmd.Wait()
-	if err != nil {
-		log.Println("cron cmd id: " + cmd.ID() + " msg:" + err.Error())
+	if cmd.Pid() > 0 {
+		log.Println("cron cmd id: " + cmd.ID() + " started")
+		_, err := cmd.Wait()
+		if err != nil {
+			log.Println("cron cmd id: " + cmd.ID() + " msg:" + err.Error())
+		}
 	}
+
 	cmd.pid = -1
 }
 
@@ -335,7 +384,19 @@ func doCtlCmdAction() {
 			}
 		}
 		log.Println("ctl action exit error : no cmd found -- " + act.cmdid)
-	case sigStart:
+	case sigExec:
+		cid, ok := findCmdIDByName(act.cmdid)
+		if ok {
+			if cmd, ok := cmds[cid]; ok {
+				if cmd.isCron {
+					go runDeamonRoutine(cid, cmd)
+				} else {
+					go doCronRoutine(cmd)
+				}
+				break
+			}
+		}
+		log.Println("ctl action exit error : no cmd found -- " + act.cmdid)
 	case sigReload:
 		cid, ok := findCmdIDByName(act.cmdid)
 		if ok {
@@ -343,6 +404,30 @@ func doCtlCmdAction() {
 		} else {
 			log.Println("ctl action reload error : no cmd found -- " + act.cmdid)
 		}
+	case sigStart:
+		cid, ok := findCmdIDByName(act.cmdid)
+		if ok {
+			if cmd, ok := cmds[cid]; ok {
+				cmd.SetRun()
+				if !cmd.isCron {
+					go runDeamonRoutine(cid, cmd)
+				}
+				break
+			}
+		}
+		log.Println("ctl action setRun error : no cmd found -- " + act.cmdid)
+	case sigPause:
+		cid, ok := findCmdIDByName(act.cmdid)
+		if ok {
+			if cmd, ok := cmds[cid]; ok {
+				cmd.SetPause()
+				if !cmd.isCron {
+					go exitSingleTask(cid, cmd)
+				}
+				break
+			}
+		}
+		log.Println("ctl action setRun error : no cmd found -- " + act.cmdid)
 	default:
 	}
 }

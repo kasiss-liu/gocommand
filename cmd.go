@@ -17,6 +17,7 @@ type Command struct {
 	isCron      bool        //是否时定时任务
 	cronExpress string      //定时任务表达式
 	process     *os.Process //具体进程指针
+	isPause     bool        //是否暂停使用
 }
 
 //SetCron 设置命令为cron命令
@@ -138,6 +139,21 @@ func (c *Command) Release() error {
 	return c.process.Release()
 }
 
+//SetPause 设置命令暂停运行
+func (c *Command) SetPause() {
+	c.isPause = true
+}
+
+//SetRun  设置命令正常运行
+func (c *Command) SetRun() {
+	c.isPause = false
+}
+
+//IsPause 返回是否暂停
+func (c *Command) IsPause() bool {
+	return c.isPause
+}
+
 //NewCommand 返回一个等待执行的cmd结构体
 func NewCommand(cmd string, args []string, output string) *Command {
 	return &Command{
@@ -146,5 +162,6 @@ func NewCommand(cmd string, args []string, output string) *Command {
 		output:      output,
 		isCron:      false,
 		cronExpress: "",
+		isPause:     false,
 	}
 }
