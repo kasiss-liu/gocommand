@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kasiss-liu/go-tools/cron"
+	cron "github.com/kasiss-liu/gocrontab"
 )
 
 //State 状态机

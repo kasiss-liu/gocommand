@@ -1,6 +1,8 @@
-github.com/kasiss-liu/go-tools v0.0.0-20191008082613-2f126082734d h1:2L3PSY53pIycAI6kThmHlw2vQ6roE6R1+XFJJTMFc2I=
-github.com/kasiss-liu/go-tools v0.0.0-20191008082613-2f126082734d/go.mod h1:3FQ/gAbglSYB7AkW4y8ghd++HEXr0fmRjtCfC0aHUms=
+github.com/kasiss-liu/go-configurator v0.0.1 h1:8dirpoceQ4b4YYmN0GT9sw9HrlsCTpqxhIYvzmQrRbM=
+github.com/kasiss-liu/go-configurator v0.0.1/go.mod h1:DNI9AXLk6CJlezyB6oUHa6aofL+ebspWUh4e8K7AzaM=
+github.com/kasiss-liu/gocrontab v0.0.1 h1:2MRppAr4D/l5Ogvx46TwkYXVLxkZSBaTE8lcHzsXpeg=
+github.com/kasiss-liu/gocrontab v0.0.1/go.mod h1:7ntc4vx9M1FtltMo+wk9TUJLDuypMMr32QXAdTYUYOU=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
-gopkg.in/yaml.v2 v2.2.7 h1:VUgggvou5XRW9mHwD/yXxIYSMtY0zoKQf/v226p2nyo=
-gopkg.in/yaml.v2 v2.2.7/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
+gopkg.in/yaml.v2 v2.2.8 h1:obN1ZagJSUGI0Ek/LBmuj4SNLPfIny3KsKFopxRdj10=
+gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=

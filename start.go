@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	loadConfig "github.com/kasiss-liu/go-tools/load-config"
+	configurator "github.com/kasiss-liu/go-configurator"
 )
 
 const (
@@ -39,7 +39,7 @@ var (
 	//tcp 启动端口 例如 127.0.0.1:17101
 	configPort string
 	//启动时载入的config文件结构
-	configRaw *loadConfig.Config
+	configRaw *configurator.Config
 	//主程序输出打印位置
 	output = os.Stdout
 	//存储config中配置的命令列表
@@ -181,7 +181,7 @@ func Start(configPath string, deamon, forceLog bool) {
 
 //读取配置文件内容 如果出错则会管理进程成
 func reloadConfigs() error {
-	cfgRaw, err := loadConfig.NewConfig(configName, configRaw.Path())
+	cfgRaw, err := configurator.NewConfig(configName, configRaw.Path())
 
 	if err != nil {
 		return nil
@@ -194,7 +194,7 @@ func reloadConfigs() error {
 	if len(commands) > 0 {
 		cmds = make(map[string]*Command)
 		for _, cmdmap := range commands {
-			cnf := loadConfig.BuildConfig(cmdmap)
+			cnf := configurator.BuildConfig(cmdmap)
 			cmd, _ := cnf.Get("cmd").String()
 			cmd = getAbsPath(cmd)
 			output, _ := cnf.Get("output").String()
@@ -244,7 +244,7 @@ func readConfig(filename string) error {
 	var err error
 	filename = getAbsPath(filename)
 	//读取原始内容
-	configRaw, err = loadConfig.NewConfig(configName, filename)
+	configRaw, err = configurator.NewConfig(configName, filename)
 	if err != nil {
 		return err
 	}
@@ -288,7 +288,7 @@ func readConfig(filename string) error {
 
 	if len(commands) > 0 {
 		for _, cmdmap := range commands {
-			cnf := loadConfig.BuildConfig(cmdmap)
+			cnf := configurator.BuildConfig(cmdmap)
 			cmd, _ := cnf.Get("cmd").String()
 			cmd = getAbsPath(cmd)
 			output, _ := cnf.Get("output").String()
